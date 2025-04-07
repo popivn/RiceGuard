@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /app/app/models /app/app/static/gradcam
 
 # Copy application code
-COPY ./backend/app ./app || echo "Warning: Failed to copy application code."
+COPY ./app || echo "Warning: Failed to copy application code."
 
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
