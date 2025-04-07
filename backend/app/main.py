@@ -157,20 +157,12 @@ async def detect_image(file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
     
+    port = int(os.getenv("PORT", "4000"))
+    host = "0.0.0.0"
+    
     if os.getenv("ENV") == "production":
         # Production mode
-        app_url = os.getenv("APP_URL")
-        if not app_url:
-            logging.error("Error: APP_URL not set in production mode")
-            exit(1)
-            
-        # Parse APP_URL to get hostname
-        parsed_url = urlparse(app_url)
-        # Always use 0.0.0.0 in production for proper binding
-        port = int(os.getenv("PORT", "10000"))
-        
         logging.info(f"Starting production server on port {port}")
-        uvicorn.run("main:app", host="0.0.0.0", port=port, workers=4)
     else:
         # Development mode
         port = int(os.getenv("PORT", "4000"))
