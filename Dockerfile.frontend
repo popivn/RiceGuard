@@ -3,69 +3,55 @@ FROM node:18-alpine AS deps
 # Create the working directory
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package.json frontend/package-lock.json* frontend/pnpm-lock.yaml* ./
+# Copy only package files first to leverage Docker cache
+COPY frontend/package*.json ./
+COPY frontend/pnpm-lock.yaml* ./
 
-# Install dependencies based on the preferred package manager
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci --legacy-peer-deps; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --no-frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+# Install dependencies with specific flags to speed up installation
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit
 
-# 2. Rebuild the source code only when needed
+# Builder stage
 FROM node:18-alpine AS builder
 WORKDIR /app
+
+# Copy dependencies and source
 COPY --from=deps /app/node_modules ./node_modules
 COPY ./frontend ./
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry.
+# Disable telemetry
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Add the output: 'standalone' configuration to next.config.js before building
-RUN if [ -f next.config.mjs ]; then \
-      sed -i 's/const nextConfig = {/const nextConfig = {\n  output: "standalone",/' next.config.mjs; \
-    elif [ -f next.config.js ]; then \
-      sed -i 's/const nextConfig = {/const nextConfig = {\n  output: "standalone",/' next.config.js; \
-    fi
-
-# Set API URLs during build
+# Set API URL
 ENV NEXT_PUBLIC_API_URL=https://riceguard.onrender.com
 
+# Build with production optimization
+ENV NODE_ENV=production
 RUN npm run build
 
-# 3. Production image, copy all the files and run next
+# Production stage
 FROM node:18-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED 1
+ENV PORT=3000
+ENV NEXT_PUBLIC_API_URL=https://riceguard.onrender.com
 
-# Copy necessary files with conditional logic to handle different Next.js output structures
-COPY --from=builder /app/.next/static ./.next/static
-
-# Handle standalone mode if it exists, otherwise copy the entire .next directory
-COPY --from=builder /app/public ./public
+# Create necessary directories
 RUN mkdir -p /app/.next
-COPY --from=builder /app/.next ./.next
 
-# Copy the standalone directory conditionally if it exists
-RUN if [ -d /app/.next/standalone ]; then \
-      cp -r /app/.next/standalone/* ./; \
-    fi
+# Copy necessary files
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/.next/standalone ./
 
-# Switch to non-root user AFTER all files are copied
-RUN chown -R node:node /app
-USER node
+# Set up non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
 
-# Set environment variables
-ENV PORT 3000
-ENV NEXT_PUBLIC_API_URL https://riceguard.onrender.com
+USER nextjs
 
 EXPOSE 3000
 
-# Use conditional command based on what files are available
-CMD ["sh", "-c", "if [ -f server.js ]; then node server.js; else next start; fi"] 
+CMD ["node", "server.js"] 

@@ -15,13 +15,8 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir wheel setuptools
 
-# Install heavy ML dependencies separately
-# Start of Selection
-# Start of Selection
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir wheel setuptools && \
-    pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow
-# End of Selection
+# Install heavy ML dependencies
+RUN pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow
 
 # Final stage
 FROM python:3.11-slim
@@ -38,39 +33,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -g 1000 appuser && \
-    useradd -u 1000 -g appuser -s /bin/bash appuser && \
-    mkdir -p /home/appuser && \
-    chown -R appuser:appuser /home/appuser
-
 # Create app directories
-RUN mkdir -p /app/app/models /app/app/static/gradcam && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/app/models /app/app/static/gradcam
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Copy application code
-COPY --chown=appuser:appuser ./backend/app ./app
+COPY ./backend/app ./app
 
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
-    echo 'export PORT=${PORT:-10000}' >> /app/start.sh && \
     echo 'exec python -m app.main' >> /app/start.sh && \
-    chmod +x /app/start.sh && \
-    chown appuser:appuser /app/start.sh
-
-# Switch to non-root user
-USER appuser
-
-# Set environment variables
-ENV PORT=10000
-ENV PYTHONUNBUFFERED=1
+    chmod +x /app/start.sh
 
 # Expose port
-EXPOSE $PORT
+EXPOSE 10000
 
 # Start command
 CMD ["/bin/bash", "/app/start.sh"]
