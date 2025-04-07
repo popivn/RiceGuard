@@ -1,4 +1,3 @@
-# Start of Selection
 # Build stage
 FROM python:3.11-slim AS builder
 
@@ -16,7 +15,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install base dependencies first
 RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 
-# Install heavy ML dependencies
+# Install all dependencies from requirements.txt
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -34,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /app/app/models /app/app/static/gradcam
 
 # Copy application code
-COPY ./app /app/app
+COPY --chown=appuser:appuser ./app /app/app
 
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
@@ -47,4 +46,3 @@ EXPOSE 10000
 
 # Start command
 CMD ["/bin/bash", "/app/start.sh"]
-# End of Selection
