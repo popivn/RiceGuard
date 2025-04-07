@@ -7,6 +7,20 @@ from ultralytics import YOLO
 import tensorflow as tf
 from fastapi.responses import JSONResponse
 import os
+from dotenv import load_dotenv
+from pathlib import Path
+import logging
+
+# Get the directory containing the current file
+BASE_DIR = Path(__file__).resolve().parent
+
+# Load environment variables from .env file
+env_path = BASE_DIR / '.env'
+load_dotenv(env_path)
+
+# Debug print
+print(f"Loading .env from: {env_path}")
+print(f"PORT from env: {os.getenv('PORT')}")
 
 app = FastAPI()
 
@@ -27,12 +41,25 @@ def load_models():
     global yolo_model, mobilenet_model
     try:
         if yolo_model is None:
-            yolo_model = YOLO("models/yolo11n.pt")
+            model_path = BASE_DIR / "models" / "yolo11n.pt"
+            print(f"Loading YOLO model from: {model_path}")
+            if not model_path.exists():
+                raise FileNotFoundError(f"YOLO model not found at {model_path}")
+            yolo_model = YOLO(str(model_path))
+            
         if mobilenet_model is None:
-            mobilenet_model = tf.keras.models.load_model(
-                "models/best_model_mobilenet.keras"
-            )
+            model_path = BASE_DIR / "models" / "best_model_mobilenet.keras"
+            print(f"Loading MobileNet model from: {model_path}")
+            if not model_path.exists():
+                raise FileNotFoundError(f"MobileNet model not found at {model_path}")
+            try:
+                mobilenet_model = tf.keras.models.load_model(str(model_path))
+                print("MobileNet model loaded successfully")
+            except Exception as e:
+                print(f"Error loading MobileNet model: {str(e)}")
+                raise
     except Exception as e:
+        logging.error(f"Failed to load models: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to load models: {str(e)}"
@@ -106,13 +133,19 @@ async def detect_image(file: UploadFile = File(...)):
         return JSONResponse(content=combined_result)
     
     except Exception as e:
+        logging.error(f"Error processing image: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error processing image: {str(e)}"
+            detail="Error processing image"
         )
 
 # For local development
 if __name__ == "__main__":
     import uvicorn
-    app_url = os.getenv("APP_URL", "http://localhost:10000")  # Use APP_URL from .env
-    uvicorn.run(app, host=app_url.split(":")[1][2:], port=int(app_url.split(":")[2]))  # Default to localhost:10000
+    try:
+        port = int(os.environ["PORT"])  # Strictly get PORT from environment
+        print(f"Starting server on port {port}")
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    except KeyError:
+        logging.error("Error: PORT environment variable is not set")
+        exit(1)

@@ -1,1 +1,11 @@
--r backend/requirements.txt 
+fastapi==0.115.12
+python-multipart==0.0.20
+numpy==1.26.4
+pillow==11.1.0
+python-dotenv==1.1.0
+tensorflow==2.16.1
+torch==2.6.0
+ultralytics==8.3.103
+uvicorn==0.34.0
+ml-dtypes==0.3.1
+tensorboard==2.16.0 
