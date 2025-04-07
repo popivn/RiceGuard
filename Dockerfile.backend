@@ -49,6 +49,8 @@ COPY --chown=appuser:appuser ./backend/app ./app
 
 # Create the startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'export PORT=${PORT:-8000}' >> /app/start.sh && \
+    echo 'echo "Starting server on port $PORT"' >> /app/start.sh && \
     echo 'python -m app.main' >> /app/start.sh && \
     chmod +x /app/start.sh && \
     chown appuser:appuser /app/start.sh
@@ -56,8 +58,9 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
 # Switch to non-root user
 USER appuser
 
-# Expose port
-EXPOSE 8000
+# Expose port - use PORT from environment or default to 8000
+ENV PORT=8000
+EXPOSE $PORT
 
 # Use our startup script
 CMD ["/app/start.sh"] 
