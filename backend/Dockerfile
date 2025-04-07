@@ -1,4 +1,3 @@
-# Start of Selection
 # Build stage
 FROM python:3.11-slim AS builder
 
@@ -16,7 +15,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 
 # Install heavy ML dependencies
-RUN pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Final stage
 FROM python:3.11-slim
@@ -45,4 +44,3 @@ EXPOSE 10000
 
 # Start command
 CMD ["/bin/bash", "/app/start.sh"]
-# End of Selection
