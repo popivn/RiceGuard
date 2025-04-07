@@ -7,6 +7,10 @@ from ultralytics import YOLO
 import tensorflow as tf
 from fastapi.responses import JSONResponse
 import os
+from dotenv import load_dotenv
+
+# Tải biến môi trường từ tệp .env
+load_dotenv()
 
 app = FastAPI()
 
@@ -90,13 +94,9 @@ async def detect_image(file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
     
-    # Get port from environment variable or default to 10000
-    port = int(os.environ.get("PORT", 10000))
-    
     # Print debug information
     print("=== Server Configuration ===")
     print(f"PORT environment variable: {os.environ.get('PORT', 'Not set')}")
-    print(f"Using port: {port}")
     print(f"Binding to host: 0.0.0.0")
     print("=========================")
     
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",  # Bind to all interfaces
-        port=port,       # Use the PORT from environment
+        port=int(os.environ.get("PORT", 10000)),  # Sử dụng PORT từ biến môi trường
         log_level="info",
         access_log=True  # Enable access logging
     )

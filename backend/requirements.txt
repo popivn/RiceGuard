@@ -7,3 +7,4 @@ tensorflow
 torch
 ultralytics
 pillow
+python-dotenv

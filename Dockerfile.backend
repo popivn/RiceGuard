@@ -1,12 +1,12 @@
+# Start of Selection
 # Build stage
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create and activate virtual environment
 RUN python -m venv /opt/venv
@@ -16,8 +16,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY backend/requirements.txt .
 
 # Install base dependencies first
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir wheel setuptools
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 
 # Install heavy ML dependencies
 RUN pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow
@@ -28,14 +27,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxrender1 \
-    libxext6 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libsm6 libxrender1 libxext6 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd -g 1000 appuser && \
@@ -54,6 +47,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY --chown=appuser:appuser ./backend/app ./app
 
+# Load environment variables from .env file
+COPY backend/app/.env .env
+
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
@@ -69,3 +65,4 @@ EXPOSE 10000
 
 # Start command
 CMD ["/bin/bash", "/app/start.sh"]
+# End of Selection
