@@ -1,3 +1,4 @@
+# Start of Selection
 # Build stage
 FROM python:3.11-slim AS builder
 
@@ -27,31 +28,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libglib2.0-0 libsm6 libxrender1 libxext6 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -g 1000 appuser && \
-    useradd -u 1000 -g appuser -s /bin/bash appuser && \
-    mkdir -p /home/appuser && \
-    chown -R appuser:appuser /home/appuser
-
 # Create app directories
-RUN mkdir -p /app/app/models /app/app/static/gradcam && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/app/models /app/app/static/gradcam
 
 # Copy application code
-COPY --chown=appuser:appuser ./backend/app ./app
+COPY ./backend/app ./app || echo "Warning: Failed to copy application code."
 
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
     echo 'exec python -m app.main' >> /app/start.sh && \
-    chmod +x /app/start.sh && \
-    chown appuser:appuser /app/start.sh
-
-# Switch to non-root user
-USER appuser
+    chmod +x /app/start.sh
 
 # Expose port
 EXPOSE 10000
 
 # Start command
 CMD ["/bin/bash", "/app/start.sh"]
+# End of Selection
