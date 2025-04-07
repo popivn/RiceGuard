@@ -1,3 +1,4 @@
+# Start of Selection
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
@@ -44,23 +45,25 @@ RUN mkdir -p /app/app/models /app/app/static/gradcam && \
 # Copy the virtual environment from the builder stage
 COPY --from=builder /app/venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
+
 # Copy application files
 COPY --chown=appuser:appuser ./backend/app ./app
 
 # Create the startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
-    echo 'export PORT=${PORT:-8000}' >> /app/start.sh && \
+    echo 'export PORT=${PORT:-10000}' >> /app/start.sh && \
     echo 'echo "Starting server on port $PORT"' >> /app/start.sh && \
-    echo 'python -m app.main' >> /app/start.sh && \
+    echo 'exec python -m app.main' >> /app/start.sh && \
     chmod +x /app/start.sh && \
     chown appuser:appuser /app/start.sh
 
 # Switch to non-root user
 USER appuser
 
-# Expose port - use PORT from environment or default to 8000
-ENV PORT=8000
+# Expose port - use PORT from environment or default to 10000
+ENV PORT=10000
 EXPOSE $PORT
 
 # Use our startup script
 CMD ["/app/start.sh"] 
+# End of Selection
