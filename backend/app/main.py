@@ -6,6 +6,7 @@ from PIL import Image
 from ultralytics import YOLO
 import tensorflow as tf
 from fastapi.responses import JSONResponse
+import os
 
 app = FastAPI()
 
@@ -113,4 +114,5 @@ async def detect_image(file: UploadFile = File(...)):
 # For local development
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="localhost", port=10000)  # Default to localhost:10000
+    app_url = os.getenv("APP_URL", "http://localhost:10000")  # Use APP_URL from .env
+    uvicorn.run(app, host=app_url.split(":")[1][2:], port=int(app_url.split(":")[2]))  # Default to localhost:10000
