@@ -6,11 +6,6 @@ from PIL import Image
 from ultralytics import YOLO
 import tensorflow as tf
 from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
-import os  # Import os to access environment variables
-
-# Load environment variables
-load_dotenv()
 
 app = FastAPI()
 
@@ -118,5 +113,4 @@ async def detect_image(file: UploadFile = File(...)):
 # For local development
 if __name__ == "__main__":
     import uvicorn
-    host_url = os.getenv("HOST_URL", "http://localhost:10000")  # Use HOST_URL from .env
-    uvicorn.run(app, host=host_url.split("://")[1])  # Extract host without setting port
+    uvicorn.run(app, host="localhost", port=10000)  # Default to localhost:10000

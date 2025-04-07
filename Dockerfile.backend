@@ -16,10 +16,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY backend/requirements.txt .
 
 # Install base dependencies first
-RUN pip install --no-cache-dir --upgrade pip wheel setuptools
+# Start of Selection
+RUN pip install --upgrade pip wheel setuptools
 
 # Install heavy ML dependencies
-RUN pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow python-dotenv
+RUN pip install tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow python-dotenv
+# End of Selection
 
 # Final stage
 FROM python:3.11-slim
