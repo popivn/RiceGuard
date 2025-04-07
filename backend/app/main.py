@@ -90,7 +90,16 @@ async def detect_image(file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
     
-    # Get port from environment variable or default to 8000
-    port = int(os.environ.get("PORT", 8000))
+    # Get port from environment variable or default to 10000
+    port = int(os.environ.get("PORT", 10000))
     print(f"Starting server on port {port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"Host: 0.0.0.0")
+    print(f"Environment PORT: {os.environ.get('PORT', 'Not set')}")
+    
+    # Run the server
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        log_level="info"
+    )

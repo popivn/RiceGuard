@@ -30,7 +30,7 @@ services:
         - BUILDKIT_INLINE_CACHE=1
     image: backend:latest
     ports:
-      - "8000:8000"
+      - "10000:10000"
     volumes:
       # Persist model files between container recreations
       - backend_models:/app/app/models

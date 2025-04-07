@@ -49,7 +49,7 @@ ENV PATH="/app/venv/bin:$PATH"
 # Copy application files
 COPY --chown=appuser:appuser ./backend/app ./app
 
-# Create the startup script
+# Create the startup script with proper line endings and permissions
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'export PORT=${PORT:-10000}' >> /app/start.sh && \
     echo 'echo "Starting server on port $PORT"' >> /app/start.sh && \
@@ -60,10 +60,12 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
 # Switch to non-root user
 USER appuser
 
-# Expose port - use PORT from environment or default to 10000
+# Set default port
 ENV PORT=10000
+
+# Expose the port
 EXPOSE $PORT
 
-# Use our startup script
-CMD ["/app/start.sh"] 
+# Use our startup script with explicit path
+CMD ["/bin/bash", "/app/start.sh"]
 # End of Selection
