@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
+from urllib.parse import urlparse
 
 # Get the directory containing the current file
 BASE_DIR = Path(__file__).resolve().parent
@@ -19,19 +20,32 @@ env_path = BASE_DIR / '.env'
 load_dotenv(env_path)
 
 # Debug print
-print(f"Loading .env from: {env_path}")
-print(f"PORT from env: {os.getenv('PORT')}")
+logging.info(f"Loading .env from: {env_path}")
+logging.info(f"PORT from env: {os.getenv('PORT')}")
+logging.info(f"APP_URL from env: {os.getenv('APP_URL')}")
+logging.info(f"Environment: {os.getenv('ENV', 'development')}")
 
 app = FastAPI()
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configure CORS based on environment
+if os.getenv("ENV") == "production":
+    # Production CORS settings
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[os.getenv("APP_URL")],  # Use APP_URL from environment
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Development CORS settings
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins in development
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Initialize models (will be loaded on first request)
 yolo_model = None
@@ -42,21 +56,21 @@ def load_models():
     try:
         if yolo_model is None:
             model_path = BASE_DIR / "models" / "yolo11n.pt"
-            print(f"Loading YOLO model from: {model_path}")
+            logging.info(f"Loading YOLO model from: {model_path}")
             if not model_path.exists():
                 raise FileNotFoundError(f"YOLO model not found at {model_path}")
             yolo_model = YOLO(str(model_path))
             
         if mobilenet_model is None:
             model_path = BASE_DIR / "models" / "best_model_mobilenet.keras"
-            print(f"Loading MobileNet model from: {model_path}")
+            logging.info(f"Loading MobileNet model from: {model_path}")
             if not model_path.exists():
                 raise FileNotFoundError(f"MobileNet model not found at {model_path}")
             try:
                 mobilenet_model = tf.keras.models.load_model(str(model_path))
-                print("MobileNet model loaded successfully")
+                logging.info("MobileNet model loaded successfully")
             except Exception as e:
-                print(f"Error loading MobileNet model: {str(e)}")
+                logging.error(f"Error loading MobileNet model: {str(e)}")
                 raise
     except Exception as e:
         logging.error(f"Failed to load models: {str(e)}")
@@ -139,13 +153,27 @@ async def detect_image(file: UploadFile = File(...)):
             detail="Error processing image"
         )
 
-# For local development
+# Server startup configuration
 if __name__ == "__main__":
     import uvicorn
-    try:
-        port = int(os.environ["PORT"])  # Strictly get PORT from environment
-        print(f"Starting server on port {port}")
-        uvicorn.run(app, host="0.0.0.0", port=port)
-    except KeyError:
-        logging.error("Error: PORT environment variable is not set")
-        exit(1)
+    
+    if os.getenv("ENV") == "production":
+        # Production mode
+        app_url = os.getenv("APP_URL")
+        if not app_url:
+            logging.error("Error: APP_URL not set in production mode")
+            exit(1)
+            
+        # Parse APP_URL to get hostname
+        parsed_url = urlparse(app_url)
+        # Always use 0.0.0.0 in production for proper binding
+        port = int(os.getenv("PORT", "10000"))
+        
+        logging.info(f"Starting production server on port {port}")
+        uvicorn.run("main:app", host="0.0.0.0", port=port, workers=4)
+    else:
+        # Development mode
+        port = int(os.getenv("PORT", "4000"))
+        logging.info(f"Starting development server on port {port}")
+        # In development, we can pass app directly
+        uvicorn.run(app, host="127.0.0.1", port=port)
