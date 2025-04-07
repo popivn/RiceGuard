@@ -19,7 +19,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 
 # Install heavy ML dependencies
-RUN pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow
+RUN pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow python-dotenv
 
 # Final stage
 FROM python:3.11-slim
