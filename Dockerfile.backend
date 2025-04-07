@@ -1,0 +1,63 @@
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Copy requirement file first for caching
+COPY backend/requirements.txt .
+
+# Install Python dependencies into a virtual environment
+RUN python -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Use pip cache and wheel cache to speed up builds
+RUN pip install --upgrade pip && \
+    pip install wheel && \
+    pip install -r requirements.txt
+
+# Upgrade Ultralytics to the latest version to avoid compatibility issues
+RUN pip install --upgrade ultralytics
+
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies (no rng-tools needed anymore)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user to run app
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -s /bin/bash appuser && \
+    mkdir -p /home/appuser && \
+    chown -R appuser:appuser /home/appuser
+
+# Create directories for models and static files
+RUN mkdir -p /app/app/models /app/app/static/gradcam && \
+    chown -R appuser:appuser /app
+
+# Copy the virtual environment from the builder stage
+COPY --from=builder /app/venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+# Copy application files
+COPY --chown=appuser:appuser ./backend/app ./app
+
+# Create the startup script
+RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'python -m app.main' >> /app/start.sh && \
+    chmod +x /app/start.sh && \
+    chown appuser:appuser /app/start.sh
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Use our startup script
+CMD ["/app/start.sh"] 
