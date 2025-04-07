@@ -1,1 +1,25 @@
- 
+services:
+  # Backend service using Docker
+  - type: web
+    name: riceguard-backend
+    runtime: docker
+    region: singapore
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PYTHONHASHSEED
+        value: 42
+      - key: CORS_ORIGINS
+        value: https://riceguard-frontend.onrender.com,http://frontend:3000,https://riceguard-frontend.onrender.com
+
+  # Frontend service
+  - type: web
+    name: riceguard-frontend
+    runtime: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://riceguard-backend.onrender.com 
