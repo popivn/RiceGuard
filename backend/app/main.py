@@ -92,14 +92,19 @@ if __name__ == "__main__":
     
     # Get port from environment variable or default to 10000
     port = int(os.environ.get("PORT", 10000))
-    print(f"Starting server on port {port}")
-    print(f"Host: 0.0.0.0")
-    print(f"Environment PORT: {os.environ.get('PORT', 'Not set')}")
     
-    # Run the server
+    # Print debug information
+    print("=== Server Configuration ===")
+    print(f"PORT environment variable: {os.environ.get('PORT', 'Not set')}")
+    print(f"Using port: {port}")
+    print(f"Binding to host: 0.0.0.0")
+    print("=========================")
+    
+    # Run the server with explicit host and port binding
     uvicorn.run(
         app,
-        host="0.0.0.0",
-        port=port,
-        log_level="info"
+        host="0.0.0.0",  # Bind to all interfaces
+        port=port,       # Use the PORT from environment
+        log_level="info",
+        access_log=True  # Enable access logging
     )

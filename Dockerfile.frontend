@@ -33,7 +33,7 @@ RUN if [ -f next.config.mjs ]; then \
     fi
 
 # Set API URLs during build
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=https://riceguard.onrender.com
 
 RUN npm run build
 
@@ -63,7 +63,7 @@ USER node
 
 # Set environment variables
 ENV PORT 3000
-ENV NEXT_PUBLIC_API_URL http://localhost:8000
+ENV NEXT_PUBLIC_API_URL https://riceguard.onrender.com
 
 EXPOSE 3000
 

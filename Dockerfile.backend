@@ -1,58 +1,63 @@
-# Start of Selection
+# Build stage
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Copy requirement file first for caching
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install requirements in stages
 COPY backend/requirements.txt .
 
-# Install Python dependencies into a virtual environment
-RUN python -m venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
+# Install base dependencies first
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir wheel setuptools
 
-# Use pip cache and wheel cache to speed up builds
-RUN pip install --upgrade pip && \
-    pip install wheel && \
-    pip install -r requirements.txt
-
-# Upgrade Ultralytics to the latest version to avoid compatibility issues
-RUN pip install --upgrade ultralytics
+# Install heavy ML dependencies separately
+# Start of Selection
+# Start of Selection
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir wheel setuptools && \
+    pip install --no-cache-dir tensorflow torch torchvision fastapi uvicorn python-multipart numpy opencv-python ultralytics pillow
+# End of Selection
 
 # Final stage
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies (no rng-tools needed anymore)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxrender1 \
     libxext6 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user to run app
+# Create non-root user
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -s /bin/bash appuser && \
     mkdir -p /home/appuser && \
     chown -R appuser:appuser /home/appuser
 
-# Create directories for models and static files
+# Create app directories
 RUN mkdir -p /app/app/models /app/app/static/gradcam && \
     chown -R appuser:appuser /app
 
-# Copy the virtual environment from the builder stage
-COPY --from=builder /app/venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
-# Copy application files
+# Copy application code
 COPY --chown=appuser:appuser ./backend/app ./app
 
-# Create the startup script with proper line endings and permissions
+# Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
     echo 'export PORT=${PORT:-10000}' >> /app/start.sh && \
-    echo 'echo "Starting server on port $PORT"' >> /app/start.sh && \
     echo 'exec python -m app.main' >> /app/start.sh && \
     chmod +x /app/start.sh && \
     chown appuser:appuser /app/start.sh
@@ -60,12 +65,12 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
 # Switch to non-root user
 USER appuser
 
-# Set default port
+# Set environment variables
 ENV PORT=10000
+ENV PYTHONUNBUFFERED=1
 
-# Expose the port
+# Expose port
 EXPOSE $PORT
 
-# Use our startup script with explicit path
+# Start command
 CMD ["/bin/bash", "/app/start.sh"]
-# End of Selection
