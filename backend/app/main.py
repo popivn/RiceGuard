@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 import io
@@ -6,10 +6,10 @@ from PIL import Image
 from ultralytics import YOLO
 import tensorflow as tf
 from fastapi.responses import JSONResponse
-import os
 from dotenv import load_dotenv
+import os  # Import os to access environment variables
 
-# Tải biến môi trường từ tệp .env
+# Load environment variables
 load_dotenv()
 
 app = FastAPI()
@@ -23,12 +23,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load models
-yolo_model = YOLO("app/models/yolo11n.pt")
-mobilenet_model = tf.keras.models.load_model("app/models/best_model_mobilenet.keras")
+# Initialize models (will be loaded on first request)
+yolo_model = None
+mobilenet_model = None
 
-# Optional: Define class names if available for MobileNet model
-# mobilenet_classes = ["class1", "class2", "class3", "etc"]
+def load_models():
+    global yolo_model, mobilenet_model
+    try:
+        if yolo_model is None:
+            yolo_model = YOLO("models/yolo11n.pt")
+        if mobilenet_model is None:
+            mobilenet_model = tf.keras.models.load_model(
+                "models/best_model_mobilenet.keras"
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load models: {str(e)}"
+        )
 
 @app.get("/")
 async def root():
@@ -36,75 +48,75 @@ async def root():
 
 @app.post("/detect")
 async def detect_image(file: UploadFile = File(...)):
-    # Read and convert image
-    image_data = await file.read()
-    image = Image.open(io.BytesIO(image_data))
-    
-    # Convert PIL image to numpy array for processing
-    img_array = np.array(image)
-    
-    # Process with YOLO model
-    yolo_results = yolo_model(img_array)
-    
-    # Extract detection results
-    yolo_detections = []
-    for result in yolo_results:
-        boxes = result.boxes.xyxy.cpu().numpy().tolist()  # x1, y1, x2, y2
-        confidences = result.boxes.conf.cpu().numpy().tolist()
-        class_ids = result.boxes.cls.cpu().numpy().tolist()
-        class_names = [result.names[int(c)] for c in class_ids]
+    try:
+        # Load models if not already loaded
+        load_models()
         
-        for i in range(len(boxes)):
-            yolo_detections.append({
-                "box": boxes[i],
-                "confidence": confidences[i],
-                "class_id": class_ids[i],
-                "class_name": class_names[i]
-            })
-    
-    # Process with MobileNet model
-    # Preprocess image for MobileNet
-    mobilenet_img = image.resize((224, 224))  # Adjust size according to model
-    mobilenet_img = np.array(mobilenet_img) / 255.0  # Normalize
-    mobilenet_img = np.expand_dims(mobilenet_img, axis=0)  # Add batch dimension
-    
-    # Get MobileNet predictions
-    mobilenet_predictions = mobilenet_model.predict(mobilenet_img)[0]
-    
-    # Get the predicted class (assuming it's a classification model)
-    mobilenet_class_id = np.argmax(mobilenet_predictions)
-    mobilenet_confidence = float(mobilenet_predictions[mobilenet_class_id])
-    
-    # Optional: Get class name if available
-    # mobilenet_class_name = mobilenet_classes[mobilenet_class_id] if mobilenet_classes else f"class_{mobilenet_class_id}"
-    mobilenet_class_name = f"class_{mobilenet_class_id}"  # Use class names if available
-    
-    # Combine results from both models
-    combined_result = {
-        "yolo_detections": yolo_detections,
-        "mobilenet_classification": {
-            "class_id": int(mobilenet_class_id),
-            "class_name": mobilenet_class_name,
-            "confidence": mobilenet_confidence
+        # Read and convert image
+        image_data = await file.read()
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Convert PIL image to numpy array for processing
+        img_array = np.array(image)
+        
+        # Process with YOLO model
+        yolo_results = yolo_model(
+            img_array,
+            conf=0.25,  # Increase confidence threshold
+            max_det=5   # Limit detections
+        )
+        
+        # Extract detection results
+        yolo_detections = []
+        for result in yolo_results:
+            boxes = result.boxes.xyxy.cpu().numpy().tolist()
+            confidences = result.boxes.conf.cpu().numpy().tolist()
+            class_ids = result.boxes.cls.cpu().numpy().tolist()
+            class_names = [result.names[int(c)] for c in class_ids]
+            
+            for i in range(len(boxes)):
+                yolo_detections.append({
+                    "box": boxes[i],
+                    "confidence": confidences[i],
+                    "class_id": class_ids[i],
+                    "class_name": class_names[i]
+                })
+        
+        # Process with MobileNet model
+        mobilenet_img = image.resize((224, 224))
+        mobilenet_img = np.array(mobilenet_img) / 255.0
+        mobilenet_img = np.expand_dims(mobilenet_img, axis=0)
+        
+        # Get MobileNet predictions
+        mobilenet_predictions = mobilenet_model.predict(
+            mobilenet_img,
+            verbose=0
+        )[0]
+        
+        mobilenet_class_id = np.argmax(mobilenet_predictions)
+        mobilenet_confidence = float(mobilenet_predictions[mobilenet_class_id])
+        mobilenet_class_name = f"class_{mobilenet_class_id}"
+        
+        # Combine results from both models
+        combined_result = {
+            "yolo_detections": yolo_detections,
+            "mobilenet_classification": {
+                "class_id": int(mobilenet_class_id),
+                "class_name": mobilenet_class_name,
+                "confidence": mobilenet_confidence
+            }
         }
-    }
+        
+        return JSONResponse(content=combined_result)
     
-    return JSONResponse(content=combined_result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing image: {str(e)}"
+        )
 
+# For local development
 if __name__ == "__main__":
     import uvicorn
-    
-    # Print debug information
-    print("=== Server Configuration ===")
-    print(f"PORT environment variable: {os.environ.get('PORT', 'Not set')}")
-    print(f"Binding to host: 0.0.0.0")
-    print("=========================")
-    
-    # Run the server with explicit host and port binding
-    uvicorn.run(
-        app,
-        host="0.0.0.0",  # Bind to all interfaces
-        port=int(os.environ.get("PORT", 10000)),  # Sử dụng PORT từ biến môi trường
-        log_level="info",
-        access_log=True  # Enable access logging
-    )
+    host_url = os.getenv("HOST_URL", "http://localhost:10000")  # Use HOST_URL from .env
+    uvicorn.run(app, host=host_url.split("://")[1])  # Extract host without setting port
