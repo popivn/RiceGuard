@@ -47,9 +47,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY --chown=appuser:appuser ./backend/app ./app
 
-# Load environment variables from .env file
-COPY backend/app/.env .env
-
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
@@ -59,9 +56,6 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
 
 # Switch to non-root user
 USER appuser
-
-# Expose port
-EXPOSE 10000
 
 # Start command
 CMD ["/bin/bash", "/app/start.sh"]
