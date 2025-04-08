@@ -9,10 +9,7 @@ services:
       NODE_OPTIONS="--max-old-space-size=1024" npm run build
     startCommand: |
       cd frontend
-      PORT=$PORT npm run start
-    envVars:
-      - key: NODE_ENV
-        value: production
+      npm run start
 
   - type: web
     name: my-backend
