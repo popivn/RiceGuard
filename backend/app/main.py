@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
+import torch
 
 # Get the directory containing the current file
 BASE_DIR = Path(__file__).resolve().parent
@@ -46,8 +47,9 @@ else:
         allow_headers=["*"],
     )
 
-# Initialize model (will be loaded on first request)
+# Initialize models (will be loaded on first request)
 mobilenet_model = None
+yolo_model = None
 
 # Image size for model input
 IMG_SIZE = 224
@@ -66,7 +68,7 @@ class_names = {v: k for k, v in class_indices.items()}
 
 
 def load_models():
-    global mobilenet_model
+    global mobilenet_model, yolo_model
     try:
         if mobilenet_model is None:
             model_path = BASE_DIR / "models" / "best_lemon.keras"
@@ -83,6 +85,24 @@ def load_models():
             except Exception as e:
                 logging.error(f"Error loading MobileNet model: {str(e)}")
                 print(f"Error loading MobileNet model: {str(e)}")
+                raise
+                
+        if yolo_model is None:
+            yolo_path = BASE_DIR / "models" / "best.pt"
+            logging.info(f"Loading YOLO model from: {yolo_path}")
+            print(f"Loading YOLO model from: {yolo_path}")
+            if not yolo_path.exists():
+                raise FileNotFoundError(
+                    f"YOLO model not found at {yolo_path}"
+                )
+            try:
+                yolo_model = torch.hub.load('ultralytics/yolov5', 'custom', 
+                                           path=str(yolo_path), force_reload=True)
+                logging.info("YOLO model loaded successfully")
+                print("YOLO model loaded successfully")
+            except Exception as e:
+                logging.error(f"Error loading YOLO model: {str(e)}")
+                print(f"Error loading YOLO model: {str(e)}")
                 raise
     except Exception as e:
         logging.error(f"Failed to load models: {str(e)}")
@@ -144,8 +164,40 @@ async def detect_image(file: UploadFile = File(...)):
         print(f"Detected class: {mobilenet_class_name}")
         print(f"Confidence: {mobilenet_confidence:.2f}%")
         
-        # Create empty YOLO detections to maintain frontend compatibility
+        # Process with YOLO model
+        print("Running YOLO detection...")
+        yolo_results = yolo_model(image)
+        
+        # Process YOLO results
         yolo_detections = []
+        if len(yolo_results.xyxy[0]) > 0:
+            # Convert tensor to numpy for easier handling
+            detections = yolo_results.xyxy[0].cpu().numpy()
+            
+            # Get image dimensions for percentage calculations
+            img_width, img_height = image.size
+            
+            for detection in detections:
+                x1, y1, x2, y2, conf, cls = detection
+                
+                # Convert coordinates to percentages
+                x1_pct = (x1 / img_width) * 100
+                y1_pct = (y1 / img_height) * 100
+                x2_pct = (x2 / img_width) * 100
+                y2_pct = (y2 / img_height) * 100
+                
+                # Get class name
+                class_id = int(cls)
+                class_name = yolo_results.names[class_id]
+                
+                yolo_detections.append({
+                    "box": [x1_pct, y1_pct, x2_pct, y2_pct],
+                    "confidence": float(conf),
+                    "class_id": class_id,
+                    "class_name": class_name
+                })
+        
+        print(f"YOLO detections: {len(yolo_detections)}")
         
         # Prepare result
         combined_result = {
@@ -153,7 +205,7 @@ async def detect_image(file: UploadFile = File(...)):
             "mobilenet_classification": {
                 "class_id": int(mobilenet_class_id),
                 "class_name": mobilenet_class_name,
-                "confidence": mobilenet_confidence / 100  # Convert back to 0-1 range for frontend
+                "confidence": mobilenet_confidence / 100  # Convert to 0-1 range
             }
         }
         
