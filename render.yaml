@@ -5,7 +5,7 @@ services:
     plan: free
     buildCommand: |
       cd frontend
-      NODE_OPTIONS="--max-old-space-size=1024" npm install --legacy-peer-deps
+      NODE_OPTIONS="--max-old-space-size=1024" npm install --legacy-peer-deps --include=dev
       NODE_OPTIONS="--max-old-space-size=1024" npm run build
     startCommand: |
       cd frontend
