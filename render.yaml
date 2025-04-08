@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: my-frontend
+    runtime: nodejs
+    plan: free
+    buildCommand: |
+      cd frontend
+      npm install -g pnpm
+      pnpm install  # Hoặc dùng: npm install --legacy-peer-deps
+      pnpm run build
+    startCommand: |
+      cd frontend
+      npm run start
+    envVars:
+      - key: PORT
+        value: 3000  
+
+  - type: web
+    name: my-backend
+    runtime: python
+    plan: free
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt
+    startCommand: |
+      cd backend
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
