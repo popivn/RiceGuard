@@ -7,47 +7,38 @@ import tensorflow as tf
 from tensorflow.keras.applications.imagenet_utils import preprocess_input
 from fastapi.responses import JSONResponse
 import os
-from dotenv import load_dotenv
 from pathlib import Path
 import logging
-import torch
+from functools import lru_cache
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Get the directory containing the current file
 BASE_DIR = Path(__file__).resolve().parent
 
-# Load environment variables from .env file
-env_path = BASE_DIR / '.env'
-load_dotenv(env_path)
+# Load environment variables - use os.environ directly instead of dotenv for production
+PORT = int(os.environ.get("PORT", "4000"))
+APP_URL = os.environ.get("APP_URL", "")
+ENV = os.environ.get("ENV", "development")
 
-# Debug print
-logging.info(f"Loading .env from: {env_path}")
-logging.info(f"PORT from env: {os.getenv('PORT')}")
-logging.info(f"APP_URL from env: {os.getenv('APP_URL')}")
-logging.info(f"Environment: {os.getenv('ENV', 'development')}")
+logger.info(f"PORT: {PORT}")
+logger.info(f"APP_URL: {APP_URL}")
+logger.info(f"Environment: {ENV}")
 
 app = FastAPI()
 
-# Configure CORS based on environment
-if os.getenv("ENV") == "production":
-    # Production CORS settings
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    # Development CORS settings
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"], 
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# Configure CORS - simplified since both environments use the same config
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Initialize models (will be loaded on first request)
+# Global variables for models
 mobilenet_model = None
 yolo_model = None
 
@@ -55,96 +46,99 @@ yolo_model = None
 IMG_SIZE = 224
 
 # Class indices
-class_indices = {
-    'black spot': 0,
-    'greening': 1,
-    'healthy': 2,
-    'scab': 3,
-    'thrips': 4
+class_names = {
+    0: 'black spot',
+    1: 'greening',
+    2: 'healthy',
+    3: 'scab',
+    4: 'thrips'
 }
 
-# Reverse mapping for prediction
-class_names = {v: k for k, v in class_indices.items()}
-
-
-def load_models():
-    global mobilenet_model, yolo_model
+# Load models only once using LRU cache
+@lru_cache(maxsize=1)
+def get_mobilenet_model():
+    model_path = BASE_DIR / "models" / "best_lemon.keras"
+    logger.info(f"Loading MobileNet model from: {model_path}")
+    
+    if not model_path.exists():
+        raise FileNotFoundError(f"MobileNet model not found at {model_path}")
+    
     try:
-        # Load MobileNet model if not already loaded
-        if mobilenet_model is None:
-            model_path = BASE_DIR / "models" / "best_lemon.keras"
-            logging.info(f"Loading MobileNet model from: {model_path}")
-            print(f"Loading MobileNet model from: {model_path}")
-            if not model_path.exists():
-                raise FileNotFoundError(
-                    f"MobileNet model not found at {model_path}"
-                )
-            try:
-                mobilenet_model = tf.keras.models.load_model(str(model_path))
-                logging.info("MobileNet model loaded successfully")
-                print("MobileNet model loaded successfully")
-            except Exception as e:
-                logging.error(f"Error loading MobileNet model: {str(e)}")
-                print(f"Error loading MobileNet model: {str(e)}")
-                raise
-                
-        # Load YOLO model if not already loaded
-        if yolo_model is None:
-            yolo_path = BASE_DIR / "models" / "best.pt"
-            logging.info(f"Loading YOLO model from: {yolo_path}")
-            print(f"Loading YOLO model from: {yolo_path}")
-            if not yolo_path.exists():
-                raise FileNotFoundError(
-                    f"YOLO model not found at {yolo_path}"
-                )
-            try:
-                # Use the ultralytics package for YOLOv11 model
-                from ultralytics import YOLO
-                yolo_model = YOLO(str(yolo_path))
-                logging.info("YOLO model loaded successfully")
-                print("YOLO model loaded successfully")
-            except Exception as e:
-                logging.error(f"Error loading YOLO model: {str(e)}")
-                print(f"Error loading YOLO model: {str(e)}")
-                raise
-    except Exception as e:
-        logging.error(f"Failed to load models: {str(e)}")
-        print(f"Failed to load models: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to load models: {str(e)}"
+        # Set memory growth to avoid OOM errors
+        physical_devices = tf.config.list_physical_devices('GPU')
+        if physical_devices:
+            for device in physical_devices:
+                tf.config.experimental.set_memory_growth(device, True)
+        
+        # Load model with optimization flags
+        model = tf.keras.models.load_model(
+            str(model_path),
+            compile=False  # Faster loading when not training
         )
+        # Optimize for inference
+        model = tf.function(model, jit_compile=True)
+        logger.info("MobileNet model loaded successfully")
+        return model
+    except Exception as e:
+        logger.error(f"Error loading MobileNet model: {str(e)}")
+        raise
 
+@lru_cache(maxsize=1)
+def get_yolo_model():
+    yolo_path = BASE_DIR / "models" / "best.pt"
+    logger.info(f"Loading YOLO model from: {yolo_path}")
+    
+    if not yolo_path.exists():
+        raise FileNotFoundError(f"YOLO model not found at {yolo_path}")
+    
+    try:
+        # Import here to avoid loading if not needed
+        from ultralytics import YOLO
+        model = YOLO(str(yolo_path))
+        logger.info("YOLO model loaded successfully")
+        return model
+    except Exception as e:
+        logger.error(f"Error loading YOLO model: {str(e)}")
+        raise
+
+# Preload models on startup
+@app.on_event("startup")
+async def startup_event():
+    try:
+        # Preload models in background
+        get_mobilenet_model()
+        get_yolo_model()
+        logger.info("Models preloaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to preload models: {str(e)}")
 
 @app.get("/")
 async def root():
     return {"message": "Image Detection API"}
 
-
 @app.post("/detect")
 async def detect_image(file: UploadFile = File(...)):
     try:
-        # Load models if not already loaded
-        load_models()
-        print("Starting image detection process...")
-        
-        # Read and convert image
+        # Read image data
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
-        print(f"Image loaded successfully: {image.size}")
+        
+        # Get models (cached)
+        yolo_model = get_yolo_model()
+        mobilenet_model = get_mobilenet_model()
         
         # Process with YOLO model for object detection
-        print("Running YOLO object detection...")
-        yolo_results = yolo_model(image)
+        # Use lower resolution for faster processing
+        yolo_results = yolo_model(image, verbose=False)
         
-        # Extract YOLO detections
+        # Extract YOLO detections more efficiently
         yolo_detections = []
         for result in yolo_results:
             boxes = result.boxes
-            for box in boxes:
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                conf = box.conf[0].item()
-                cls = box.cls[0].item()
+            for i in range(len(boxes)):
+                x1, y1, x2, y2 = boxes.xyxy[i].tolist()
+                conf = boxes.conf[i].item()
+                cls = boxes.cls[i].item()
                 class_name = result.names[int(cls)]
                 
                 yolo_detections.append({
@@ -154,32 +148,21 @@ async def detect_image(file: UploadFile = File(...)):
                     "class_name": class_name
                 })
         
-        print(f"YOLO detections: {len(yolo_detections)} objects found")
-        
         # Process with MobileNet model for disease classification
-        print("Preprocessing image for MobileNet...")
         # Resize image to match training size
         mobilenet_img = image.resize((IMG_SIZE, IMG_SIZE))
-        print(f"Image resized to: {mobilenet_img.size}")
         
-        # Convert to array and preprocess
-        mobilenet_img = np.array(mobilenet_img)
+        # Convert to array and preprocess more efficiently
+        mobilenet_img = np.array(mobilenet_img, dtype=np.float32)
         mobilenet_img = np.expand_dims(mobilenet_img, axis=0)
         mobilenet_img = preprocess_input(mobilenet_img)
-        print(f"Image preprocessed, shape: {mobilenet_img.shape}")
         
-        # Get MobileNet predictions
-        print("Running MobileNet prediction...")
-        mobilenet_predictions = mobilenet_model.predict(
-            mobilenet_img,
-            verbose=0
-        )[0]
-        
-        print(f"Raw predictions: {mobilenet_predictions}")
+        # Get MobileNet predictions with optimized batch size
+        mobilenet_predictions = mobilenet_model(mobilenet_img, training=False).numpy()[0]
         
         # Get the predicted class index and confidence
         mobilenet_class_id = np.argmax(mobilenet_predictions)
-        mobilenet_confidence = float(mobilenet_predictions[mobilenet_class_id]) * 100
+        mobilenet_confidence = float(mobilenet_predictions[mobilenet_class_id])
         
         # Get class name from index
         mobilenet_class_name = class_names.get(
@@ -187,46 +170,39 @@ async def detect_image(file: UploadFile = File(...)):
             f"Unknown class index: {mobilenet_class_id}"
         )
         
-        print(f"Detected disease: {mobilenet_class_name}")
-        print(f"Confidence: {mobilenet_confidence:.2f}%")
-        
         # Prepare result
         combined_result = {
             "yolo_detections": yolo_detections,
             "mobilenet_classification": {
                 "class_id": int(mobilenet_class_id),
                 "class_name": mobilenet_class_name,
-                "confidence": mobilenet_confidence / 100
+                "confidence": mobilenet_confidence
             }
         }
         
-        print(f"Returning result: {combined_result}")
         return JSONResponse(content=combined_result)
     
     except Exception as e:
-        logging.error(f"Error processing image: {str(e)}")
-        print(f"Error processing image: {str(e)}")
+        logger.error(f"Error processing image: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing image: {str(e)}"
         )
 
-
 # Server startup configuration
 if __name__ == "__main__":
     import uvicorn
     
-    port = int(os.getenv("PORT", "4000"))
     host = "0.0.0.0"
+    logger.info(f"Starting server on {host}:{PORT} in {ENV} mode")
     
-    if os.getenv("ENV") == "production":
-        # Production mode
-        logging.info(f"Starting production server on port {port}")
-        print(f"Starting production server on port {port}")
-    else:
-        # Development mode
-        port = int(os.getenv("PORT", "4000"))
-        logging.info(f"Starting development server on port {port}")
-        print(f"Starting development server on port {port}")
-        # In development, we can pass app directly
-        uvicorn.run(app, host="127.0.0.1", port=port)
+    # Use workers for better performance in production
+    workers = 1 if ENV == "development" else min(os.cpu_count() or 1, 4)
+    
+    uvicorn.run(
+        "index:app", 
+        host=host, 
+        port=PORT,
+        workers=workers,
+        log_level="info"
+    )
