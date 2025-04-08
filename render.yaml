@@ -1,7 +1,7 @@
 services:
   - type: web
     name: my-frontend
-    runtime: nodejs
+    runtime: node
     plan: free
     buildCommand: |
       cd frontend
