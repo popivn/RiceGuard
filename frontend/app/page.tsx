@@ -96,14 +96,38 @@ export default function Home() {
     }
   }
 
+  // Helper function to get the appropriate color for disease status
+  const getDiseaseStatusColor = (className: string) => {
+    if (className === 'healthy') return 'text-green-600'
+    return 'text-red-600'
+  }
+
+  // Helper function to get description based on disease
+  const getDiseaseDescription = (className: string) => {
+    switch (className) {
+      case 'black spot':
+        return 'Fungal disease causing dark spots on leaves. Requires fungicide treatment.'
+      case 'greening':
+        return 'Bacterial disease affecting the vascular system. Severe disease with no cure.'
+      case 'healthy':
+        return 'No disease detected. The leaf appears to be healthy.'
+      case 'scab':
+        return 'Fungal disease causing raised, corky lesions. Treat with appropriate fungicide.'
+      case 'thrips':
+        return 'Insect damage causing silvery scarring. Control with insecticides.'
+      default:
+        return 'Unknown condition detected.'
+    }
+  }
+
   return (
     <main className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-3xl font-bold text-center mb-8">Chest X-Ray Analysis</h1>
+      <h1 className="text-3xl font-bold text-center mb-8">Lemon Disease Detection</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <Card className="p-4">
-            <h2 className="text-xl font-semibold mb-4">Upload X-Ray Image</h2>
+            <h2 className="text-xl font-semibold mb-4">Upload Lemon Leaf Image</h2>
 
             {!preview ? (
               <div
@@ -121,7 +145,7 @@ export default function Home() {
                   className="hidden" 
                   accept="image/*" 
                   onChange={handleFileChange}
-                  aria-label="Upload X-Ray image" 
+                  aria-label="Upload lemon leaf image" 
                 />
               </div>
             ) : (
@@ -169,17 +193,14 @@ export default function Home() {
                   <TabsTrigger value="detection" className="flex-1">
                     Detection
                   </TabsTrigger>
-                  <TabsTrigger value="heatmap" className="flex-1">
-                    Heatmap
-                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="diagnosis" className="space-y-4 mt-4">
                   <div className="bg-gray-100 p-4 rounded-lg">
                     <h3 className="font-medium text-lg">
                       Diagnosis:{" "}
-                      <span className={results.mobilenet_classification.class_name.includes("1") ? "text-red-600" : "text-green-600"}>
-                        {results.mobilenet_classification.class_name.includes("1") ? "Pneumonia" : "Normal"}
+                      <span className={getDiseaseStatusColor(results.mobilenet_classification.class_name)}>
+                        {results.mobilenet_classification.class_name}
                       </span>
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
@@ -188,20 +209,16 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <h3 className="font-medium mb-2">Findings:</h3>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li className="text-sm">
-                        {results.mobilenet_classification.class_name.includes("1") 
-                          ? "Possible lung infiltrates detected" 
-                          : "No significant findings detected"}
-                      </li>
-                    </ul>
+                    <h3 className="font-medium mb-2">Details:</h3>
+                    <p className="text-sm">
+                      {getDiseaseDescription(results.mobilenet_classification.class_name)}
+                    </p>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="detection" className="mt-4">
                   <div className="relative">
-                    {preview && <img src={preview || "/placeholder.svg"} alt="X-Ray" className="w-full rounded-lg" />}
+                    {preview && <img src={preview || "/placeholder.svg"} alt="Lemon Leaf" className="w-full rounded-lg" />}
                     {results.yolo_detections.map((box: any, index: number) => (
                       <div
                         key={index}
@@ -219,27 +236,16 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-sm mt-2 text-gray-500">{results.yolo_detections.length} object(s) detected</p>
-                </TabsContent>
-
-                <TabsContent value="heatmap" className="mt-4">
-                  {preview && (
-                    <div>
-                      <img
-                        src={preview || "/placeholder.svg"}
-                        alt="X-Ray"
-                        className="w-full rounded-lg"
-                      />
-                      <p className="text-sm mt-2 text-gray-500">
-                        X-Ray image (heatmap visualization not available)
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-sm mt-2 text-gray-500">
+                    {results.yolo_detections.length === 0 
+                      ? "No specific detection areas (entire leaf analyzed)" 
+                      : `${results.yolo_detections.length} area(s) detected`}
+                  </p>
                 </TabsContent>
               </Tabs>
             ) : (
               <div className="text-center py-12 text-gray-500">
-                <p>Upload and analyze an image to see results</p>
+                <p>Upload and analyze a lemon leaf image to see results</p>
               </div>
             )}
           </Card>
