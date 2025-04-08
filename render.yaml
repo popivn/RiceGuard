@@ -9,7 +9,7 @@ services:
       pnpm install  # Hoặc dùng: npm install --legacy-peer-deps
     startCommand: |
       cd frontend
-      npm run dev
+      npm run start
     envVars:
       - key: PORT
         value: 3000  
