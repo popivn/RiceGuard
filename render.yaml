@@ -1,12 +1,13 @@
 services:
   - type: web
     name: my-frontend
-    env: node
+    runtime: nodejs
     plan: free
     buildCommand: |
       cd frontend
       npm install -g pnpm
       pnpm install  # Hoặc dùng: npm install --legacy-peer-deps
+      pnpm run build
     startCommand: |
       cd frontend
       npm run start
@@ -16,7 +17,7 @@ services:
 
   - type: web
     name: my-backend
-    env: python
+    runtime: python
     plan: free
     buildCommand: |
       cd backend
