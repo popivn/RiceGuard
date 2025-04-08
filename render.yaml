@@ -1,24 +1,23 @@
 services:
   - type: web
-    name: riceguard-backend
-    runtime: docker
-    region: singapore
-    plan: free
-    healthCheckPath: /
-    envVars:
-      - key: PYTHONHASHSEED
-        value: 42
-      - key: CORS_ORIGINS
-        value: https://riceguard-frontend.onrender.com,http://frontend:3000,https://riceguard-frontend.onrender.com
-
-  # Frontend service
-  - type: web
-    name: riceguard-frontend
+    name: my-frontend
     runtime: node
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NEXT_PUBLIC_API_URL
-        value: https://riceguard-backend.onrender.com 
+    plan: free
+    buildCommand: |
+      cd frontend
+      NODE_OPTIONS="--max-old-space-size=1024" npm install --legacy-peer-deps --include=dev
+      NODE_OPTIONS="--max-old-space-size=1024" npm run build
+    startCommand: |
+      cd frontend
+      npm run start
+
+  - type: web
+    name: my-backend
+    runtime: python
+    plan: free
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt
+    startCommand: |
+      cd backend
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
