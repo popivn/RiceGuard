@@ -31,7 +31,7 @@ if os.getenv("ENV") == "production":
     # Production CORS settings
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[os.getenv("APP_URL")],  # Use APP_URL from environment
+        allow_origins=["*"],  
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -40,7 +40,7 @@ else:
     # Development CORS settings
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins in development
+        allow_origins=["*"], 
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
