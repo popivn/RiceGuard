@@ -1,25 +1,24 @@
 services:
   - type: web
-    name: my-frontend
-    env: node
+    name: riceguard-backend
+    runtime: docker
+    region: singapore
     plan: free
-    buildCommand: |
-      cd frontend
-      npm install
-    startCommand: |
-      cd frontend
-      npm run dev
+    healthCheckPath: /
     envVars:
-      - key: PORT
-        value: 3000  # React/Vite dev server mặc định
+      - key: PYTHONHASHSEED
+        value: 42
+      - key: CORS_ORIGINS
+        value: https://riceguard-frontend.onrender.com,http://frontend:3000,https://riceguard-frontend.onrender.com
 
+  # Frontend service
   - type: web
-    name: my-backend
-    env: python
-    plan: free
-    buildCommand: |
-      cd backend
-      pip install -r requirements.txt
-    startCommand: |
-      cd backend
-      uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    name: riceguard-frontend
+    runtime: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://riceguard-backend.onrender.com 
