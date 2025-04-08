@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
+import torch
 
 # Get the directory containing the current file
 BASE_DIR = Path(__file__).resolve().parent
@@ -46,8 +47,9 @@ else:
         allow_headers=["*"],
     )
 
-# Initialize model (will be loaded on first request)
+# Initialize models (will be loaded on first request)
 mobilenet_model = None
+yolo_model = None
 
 # Image size for model input
 IMG_SIZE = 224
@@ -66,8 +68,9 @@ class_names = {v: k for k, v in class_indices.items()}
 
 
 def load_models():
-    global mobilenet_model
+    global mobilenet_model, yolo_model
     try:
+        # Load MobileNet model if not already loaded
         if mobilenet_model is None:
             model_path = BASE_DIR / "models" / "best_lemon.keras"
             logging.info(f"Loading MobileNet model from: {model_path}")
@@ -83,6 +86,26 @@ def load_models():
             except Exception as e:
                 logging.error(f"Error loading MobileNet model: {str(e)}")
                 print(f"Error loading MobileNet model: {str(e)}")
+                raise
+                
+        # Load YOLO model if not already loaded
+        if yolo_model is None:
+            yolo_path = BASE_DIR / "models" / "best.pt"
+            logging.info(f"Loading YOLO model from: {yolo_path}")
+            print(f"Loading YOLO model from: {yolo_path}")
+            if not yolo_path.exists():
+                raise FileNotFoundError(
+                    f"YOLO model not found at {yolo_path}"
+                )
+            try:
+                # Use the ultralytics package for YOLOv11 model
+                from ultralytics import YOLO
+                yolo_model = YOLO(str(yolo_path))
+                logging.info("YOLO model loaded successfully")
+                print("YOLO model loaded successfully")
+            except Exception as e:
+                logging.error(f"Error loading YOLO model: {str(e)}")
+                print(f"Error loading YOLO model: {str(e)}")
                 raise
     except Exception as e:
         logging.error(f"Failed to load models: {str(e)}")
@@ -110,7 +133,30 @@ async def detect_image(file: UploadFile = File(...)):
         image = Image.open(io.BytesIO(image_data))
         print(f"Image loaded successfully: {image.size}")
         
-        # Process with MobileNet model
+        # Process with YOLO model for object detection
+        print("Running YOLO object detection...")
+        yolo_results = yolo_model(image)
+        
+        # Extract YOLO detections
+        yolo_detections = []
+        for result in yolo_results:
+            boxes = result.boxes
+            for box in boxes:
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                conf = box.conf[0].item()
+                cls = box.cls[0].item()
+                class_name = result.names[int(cls)]
+                
+                yolo_detections.append({
+                    "box": [float(x1), float(y1), float(x2), float(y2)],
+                    "confidence": float(conf),
+                    "class": int(cls),
+                    "class_name": class_name
+                })
+        
+        print(f"YOLO detections: {len(yolo_detections)} objects found")
+        
+        # Process with MobileNet model for disease classification
         print("Preprocessing image for MobileNet...")
         # Resize image to match training size
         mobilenet_img = image.resize((IMG_SIZE, IMG_SIZE))
@@ -141,11 +187,8 @@ async def detect_image(file: UploadFile = File(...)):
             f"Unknown class index: {mobilenet_class_id}"
         )
         
-        print(f"Detected class: {mobilenet_class_name}")
+        print(f"Detected disease: {mobilenet_class_name}")
         print(f"Confidence: {mobilenet_confidence:.2f}%")
-        
-        # Create empty YOLO detections to maintain frontend compatibility
-        yolo_detections = []
         
         # Prepare result
         combined_result = {
@@ -153,7 +196,7 @@ async def detect_image(file: UploadFile = File(...)):
             "mobilenet_classification": {
                 "class_id": int(mobilenet_class_id),
                 "class_name": mobilenet_class_name,
-                "confidence": mobilenet_confidence / 100  # Convert back to 0-1 range for frontend
+                "confidence": mobilenet_confidence / 100
             }
         }
         
@@ -165,7 +208,7 @@ async def detect_image(file: UploadFile = File(...)):
         print(f"Error processing image: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="Error processing image"
+            detail=f"Error processing image: {str(e)}"
         )
 
 

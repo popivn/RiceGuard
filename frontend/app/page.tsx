@@ -120,6 +120,14 @@ export default function Home() {
     }
   }
 
+  // Helper function to check if disease is recognized in detail
+  const isUnrecognizedDisease = (results: any) => {
+    return results &&
+           results.yolo_detections && 
+           results.yolo_detections.length === 0 &&
+           !['healthy', 'black spot', 'greening', 'scab', 'thrips'].includes(results.mobilenet_classification.class_name);
+  }
+
   return (
     <main className="container mx-auto p-4 max-w-6xl">
       <h1 className="text-3xl font-bold text-center mb-8">Lemon Disease Detection</h1>
@@ -213,33 +221,56 @@ export default function Home() {
                     <p className="text-sm">
                       {getDiseaseDescription(results.mobilenet_classification.class_name)}
                     </p>
+                    
+                    {/* Add warning message when no YOLO detections and not a recognized disease */}
+                    {isUnrecognizedDisease(results) && (
+                      <div className="mt-4 p-3 bg-yellow-100 text-yellow-700 rounded-md text-sm">
+                        <p className="font-semibold">Warning:</p>
+                        <p>No specific disease patterns were detected in this image. The diagnosis may not be accurate.</p>
+                        <p className="mt-2">This could mean:</p>
+                        <ul className="list-disc ml-5 mt-1">
+                          <li>The image doesn't contain any recognizable disease patterns</li>
+                          <li>The disease is at an early stage or difficult to detect</li>
+                          <li>The image quality or lighting may be affecting analysis</li>
+                        </ul>
+                        <p className="mt-2">Consider consulting with a plant pathologist for proper diagnosis.</p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
                 <TabsContent value="detection" className="mt-4">
                   <div className="relative">
                     {preview && <img src={preview || "/placeholder.svg"} alt="Lemon Leaf" className="w-full rounded-lg" />}
-                    {results.yolo_detections.map((box: any, index: number) => (
-                      <div
-                        key={index}
-                        className="absolute border-2 border-yellow-500 rounded-sm flex items-center justify-center"
-                        style={{
-                          left: `${box.box[0]}%`,
-                          top: `${box.box[1]}%`,
-                          width: `${box.box[2] - box.box[0]}%`,
-                          height: `${box.box[3] - box.box[1]}%`,
-                        }}
-                      >
-                        <span className="bg-yellow-500 text-xs text-black px-1 absolute -top-5 left-0">
-                          {box.class_name} ({(box.confidence * 100).toFixed(0)}%)
-                        </span>
+                    {results.yolo_detections && results.yolo_detections.length > 0 ? (
+                      results.yolo_detections.map((box: any, index: number) => (
+                        <div
+                          key={index}
+                          className="absolute border-2 border-yellow-500 rounded-sm flex items-center justify-center"
+                          style={{
+                            left: `${box.box[0]}%`,
+                            top: `${box.box[1]}%`,
+                            width: `${box.box[2] - box.box[0]}%`,
+                            height: `${box.box[3] - box.box[1]}%`,
+                          }}
+                        >
+                          <span className="bg-yellow-500 text-xs text-black px-1 absolute -top-5 left-0">
+                            {box.class_name} ({(box.confidence * 100).toFixed(0)}%)
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
+                        <div className="bg-white p-4 rounded-md shadow-md">
+                          <p className="text-center font-medium">No specific disease areas detected</p>
+                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                   <p className="text-sm mt-2 text-gray-500">
-                    {results.yolo_detections.length === 0 
-                      ? "No specific detection areas (entire leaf analyzed)" 
-                      : `${results.yolo_detections.length} area(s) detected`}
+                    {!results.yolo_detections || results.yolo_detections.length === 0 
+                      ? "No specific disease patterns detected in this image" 
+                      : `${results.yolo_detections.length} disease area(s) detected`}
                   </p>
                 </TabsContent>
               </Tabs>
@@ -254,4 +285,3 @@ export default function Home() {
     </main>
   )
 }
-
