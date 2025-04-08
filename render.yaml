@@ -6,8 +6,7 @@ services:
     buildCommand: |
       cd frontend
       npm install -g pnpm
-      pnpm install  # Hoặc dùng: npm install --legacy-peer-deps
-      pnpm run build
+      npm run build
     startCommand: |
       cd frontend
       npm run start
