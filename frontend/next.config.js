@@ -13,8 +13,6 @@ const nextConfig = {
     
     return config;
   },
-  // Ensure outputFileTracing is enabled for better builds
-  output: 'standalone',
 };
 
 module.exports = nextConfig; 
