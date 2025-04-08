@@ -10,34 +10,6 @@ services:
     image: frontend:latest
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:10000}  # For browser access
-      - INTERNAL_API_URL=http://backend:10000  # For container-to-container communication
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-      cache_from:
-        - backend:latest
-      args:
-        - BUILDKIT_INLINE_CACHE=1
-    image: backend:latest
-    ports:
-      - "10000:10000"
-    volumes:
-      # Persist model files between container recreations
-      - backend_models:/app/app/models
-      - backend_static:/app/app/static
-    environment:
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://frontend:3000,http://localhost:80,http://localhost,http://localhost:10000}
-      - PYTHONHASHSEED=42
     networks:
       - app-network
     restart: unless-stopped
@@ -45,7 +17,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  backend_models:
-  backend_static: 
