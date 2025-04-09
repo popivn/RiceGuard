@@ -2,12 +2,13 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { generateExplanation } from "./action/generate-explanation"
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
@@ -15,6 +16,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [explanation, setExplanation] = useState<string>("")
+  const [loadingExplanation, setLoadingExplanation] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -27,6 +30,7 @@ export default function Home() {
       reader.readAsDataURL(selectedFile)
       setResults(null)
       setError(null)
+      setExplanation("")
     }
   }
 
@@ -42,6 +46,7 @@ export default function Home() {
       reader.readAsDataURL(droppedFile)
       setResults(null)
       setError(null)
+      setExplanation("")
     }
   }
 
@@ -54,6 +59,7 @@ export default function Home() {
     setPreview(null)
     setResults(null)
     setError(null)
+    setExplanation("")
   }
 
   const analyzeImage = async () => {
@@ -61,6 +67,7 @@ export default function Home() {
 
     setLoading(true)
     setError(null)
+    setExplanation("")
 
     try {
       const formData = new FormData()
@@ -80,13 +87,13 @@ export default function Home() {
 
       const data = await response.json()
       console.log("API Response data:", data)
-      
+
       // Validate response format
       if (!data.mobilenet_classification) {
         console.error("Invalid response format - missing mobilenet_classification:", data)
         throw new Error("Invalid response format from server")
       }
-      
+
       setResults(data)
     } catch (err) {
       console.error("Error details:", err)
@@ -98,35 +105,44 @@ export default function Home() {
 
   // Helper function to get the appropriate color for disease status
   const getDiseaseStatusColor = (className: string) => {
-    if (className === 'healthy') return 'text-green-600'
-    return 'text-red-600'
+    if (className === "healthy") return "text-green-600"
+    return "text-red-600"
   }
 
-  // Helper function to get description based on disease
-  const getDiseaseDescription = (className: string) => {
-    switch (className) {
-      case 'black spot':
-        return 'Fungal disease causing dark spots on leaves. Requires fungicide treatment.'
-      case 'greening':
-        return 'Bacterial disease affecting the vascular system. Severe disease with no cure.'
-      case 'healthy':
-        return 'No disease detected. The leaf appears to be healthy.'
-      case 'scab':
-        return 'Fungal disease causing raised, corky lesions. Treat with appropriate fungicide.'
-      case 'thrips':
-        return 'Insect damage causing silvery scarring. Control with insecticides.'
-      default:
-        return 'Unknown condition detected.'
+  // Helper function to check if YOLO detection is empty
+  const isEmptyYoloDetection = (results: any) => {
+    return results && results.yolo_detections && results.yolo_detections.length === 0
+  }
+
+  // Fetch explanation when results change
+  useEffect(() => {
+    const fetchExplanation = async () => {
+      if (!results) return
+
+      setLoadingExplanation(true)
+      try {
+        let diseaseName
+
+        if (isEmptyYoloDetection(results)) {
+          diseaseName = "no detection"
+        } else {
+          diseaseName = results.mobilenet_classification.class_name
+        }
+
+        const explanation = await generateExplanation(diseaseName)
+        setExplanation(explanation)
+      } catch (error) {
+        console.error("Error fetching explanation:", error)
+        setExplanation("Unable to generate explanation at this time.")
+      } finally {
+        setLoadingExplanation(false)
+      }
     }
-  }
 
-  // Helper function to check if disease is recognized in detail
-  const isUnrecognizedDisease = (results: any) => {
-    return results &&
-           results.yolo_detections && 
-           results.yolo_detections.length === 0 &&
-           !['healthy', 'black spot', 'greening', 'scab', 'thrips'].includes(results.mobilenet_classification.class_name);
-  }
+    if (results) {
+      fetchExplanation()
+    }
+  }, [results])
 
   return (
     <main className="container mx-auto p-4 max-w-6xl">
@@ -135,7 +151,7 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <Card className="p-4">
-            <h2 className="text-xl font-semibold mb-4">Upload Lemon Leaf Image</h2>
+            <h2 className="text-xl font-semibold mb-4">Upload Lemon Fruit Image</h2>
 
             {!preview ? (
               <div
@@ -147,13 +163,13 @@ export default function Home() {
                 <Upload className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-600">Drag and drop or click to upload</p>
                 <p className="text-xs text-gray-500 mt-1">Supports JPG, PNG</p>
-                <input 
-                  id="file-upload" 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*" 
+                <input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
                   onChange={handleFileChange}
-                  aria-label="Upload lemon leaf image" 
+                  aria-label="Upload lemon leaf image"
                 />
               </div>
             ) : (
@@ -204,29 +220,29 @@ export default function Home() {
                 </TabsList>
 
                 <TabsContent value="diagnosis" className="space-y-4 mt-4">
-                  <div className="bg-gray-100 p-4 rounded-lg">
-                    <h3 className="font-medium text-lg">
-                      Diagnosis:{" "}
-                      <span className={getDiseaseStatusColor(results.mobilenet_classification.class_name)}>
-                        {results.mobilenet_classification.class_name}
-                      </span>
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Confidence: {(results.mobilenet_classification.confidence * 100).toFixed(2)}%
-                    </p>
-                  </div>
+                  {isEmptyYoloDetection(results) ? (
+                    <div className="bg-gray-100 p-4 rounded-lg">
+                      <h3 className="font-medium text-lg">
+                        Diagnosis: <span className="text-yellow-600">No specific disease areas detected</span>
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        The system could not identify specific disease patterns in this image.
+                      </p>
 
-                  <div>
-                    <h3 className="font-medium mb-2">Details:</h3>
-                    <p className="text-sm">
-                      {getDiseaseDescription(results.mobilenet_classification.class_name)}
-                    </p>
-                    
-                    {/* Add warning message when no YOLO detections and not a recognized disease */}
-                    {isUnrecognizedDisease(results) && (
+                      <div className="mt-4">
+                        <h3 className="font-medium mb-2">Details:</h3>
+                        {loadingExplanation ? (
+                          <Skeleton className="h-16 w-full" />
+                        ) : (
+                          <p className="text-sm">{explanation}</p>
+                        )}
+                      </div>
+
                       <div className="mt-4 p-3 bg-yellow-100 text-yellow-700 rounded-md text-sm">
                         <p className="font-semibold">Warning:</p>
-                        <p>No specific disease patterns were detected in this image. The diagnosis may not be accurate.</p>
+                        <p>
+                          No specific disease patterns were detected in this image. The diagnosis may not be accurate.
+                        </p>
                         <p className="mt-2">This could mean:</p>
                         <ul className="list-disc ml-5 mt-1">
                           <li>The image doesn't contain any recognizable disease patterns</li>
@@ -235,13 +251,38 @@ export default function Home() {
                         </ul>
                         <p className="mt-2">Consider consulting with a plant pathologist for proper diagnosis.</p>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-gray-100 p-4 rounded-lg">
+                        <h3 className="font-medium text-lg">
+                          Diagnosis:{" "}
+                          <span className={getDiseaseStatusColor(results.mobilenet_classification.class_name)}>
+                            {results.mobilenet_classification.class_name}
+                          </span>
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Confidence: {(results.mobilenet_classification.confidence * 100).toFixed(2)}%
+                        </p>
+                      </div>
+
+                      <div>
+                        <h3 className="font-medium mb-2">Details:</h3>
+                        {loadingExplanation ? (
+                          <Skeleton className="h-16 w-full" />
+                        ) : (
+                          <p className="text-sm">{explanation}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="detection" className="mt-4">
                   <div className="relative">
-                    {preview && <img src={preview || "/placeholder.svg"} alt="Lemon Leaf" className="w-full rounded-lg" />}
+                    {preview && (
+                      <img src={preview || "/placeholder.svg"} alt="Lemon Leaf" className="w-full rounded-lg" />
+                    )}
                     {results.yolo_detections && results.yolo_detections.length > 0 ? (
                       results.yolo_detections.map((box: any, index: number) => (
                         <div
@@ -268,8 +309,8 @@ export default function Home() {
                     )}
                   </div>
                   <p className="text-sm mt-2 text-gray-500">
-                    {!results.yolo_detections || results.yolo_detections.length === 0 
-                      ? "No specific disease patterns detected in this image" 
+                    {!results.yolo_detections || results.yolo_detections.length === 0
+                      ? "No specific disease patterns detected in this image"
                       : `${results.yolo_detections.length} disease area(s) detected`}
                   </p>
                 </TabsContent>

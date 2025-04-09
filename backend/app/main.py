@@ -188,21 +188,3 @@ async def detect_image(file: UploadFile = File(...)):
             status_code=500,
             detail=f"Error processing image: {str(e)}"
         )
-
-# Server startup configuration
-if __name__ == "__main__":
-    import uvicorn
-    
-    host = "0.0.0.0"
-    logger.info(f"Starting server on {host}:{PORT} in {ENV} mode")
-    
-    # Use workers for better performance in production
-    workers = 1 if ENV == "development" else min(os.cpu_count() or 1, 4)
-    
-    uvicorn.run(
-        "index:app", 
-        host=host, 
-        port=PORT,
-        workers=workers,
-        log_level="info"
-    )
