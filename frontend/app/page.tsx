@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Upload, X } from "lucide-react"
+import { Upload, X } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,6 +18,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [explanation, setExplanation] = useState<string>("")
   const [loadingExplanation, setLoadingExplanation] = useState(false)
+  const [heatmapImage, setHeatmapImage] = useState<string | null>(null)
+  const [loadingHeatmap, setLoadingHeatmap] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -31,6 +33,7 @@ export default function Home() {
       setResults(null)
       setError(null)
       setExplanation("")
+      setHeatmapImage(null)
     }
   }
 
@@ -47,6 +50,7 @@ export default function Home() {
       setResults(null)
       setError(null)
       setExplanation("")
+      setHeatmapImage(null)
     }
   }
 
@@ -60,6 +64,7 @@ export default function Home() {
     setResults(null)
     setError(null)
     setExplanation("")
+    setHeatmapImage(null)
   }
 
   const analyzeImage = async () => {
@@ -68,6 +73,7 @@ export default function Home() {
     setLoading(true)
     setError(null)
     setExplanation("")
+    setHeatmapImage(null)
 
     try {
       const formData = new FormData()
@@ -95,11 +101,43 @@ export default function Home() {
       }
 
       setResults(data)
+      
+      // After successful analysis, fetch the heatmap
+      fetchHeatmap()
     } catch (err) {
       console.error("Error details:", err)
       setError(err instanceof Error ? err.message : "An unknown error occurred")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchHeatmap = async () => {
+    if (!file) return
+
+    setLoadingHeatmap(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/detect_with_gradcam`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch heatmap: ${response.status}`)
+      }
+
+      // Get the response as a blob
+      const blob = await response.blob()
+      const imageUrl = URL.createObjectURL(blob)
+      setHeatmapImage(imageUrl)
+    } catch (err) {
+      console.error("Error fetching heatmap:", err)
+      // Don't set an error message here to avoid disrupting the main flow
+    } finally {
+      setLoadingHeatmap(false)
     }
   }
 
@@ -217,6 +255,9 @@ export default function Home() {
                   <TabsTrigger value="detection" className="flex-1">
                     Detection
                   </TabsTrigger>
+                  <TabsTrigger value="heatmap" className="flex-1">
+                    Heatmap
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="diagnosis" className="space-y-4 mt-4">
@@ -313,6 +354,37 @@ export default function Home() {
                       ? "No specific disease patterns detected in this image"
                       : `${results.yolo_detections.length} disease area(s) detected`}
                   </p>
+                </TabsContent>
+
+                <TabsContent value="heatmap" className="mt-4">
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">Grad-CAM Heatmap Visualization</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      This visualization highlights the regions that influenced the model's decision
+                    </p>
+                    
+                    {loadingHeatmap ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <Skeleton className="h-64 w-full rounded-lg" />
+                        <p className="mt-4 text-sm text-gray-500">Generating heatmap visualization...</p>
+                      </div>
+                    ) : heatmapImage ? (
+                      <div className="relative">
+                        <img 
+                          src={heatmapImage || "/placeholder.svg"} 
+                          alt="Grad-CAM Heatmap" 
+                          className="w-full h-auto rounded-lg object-contain max-h-[400px]" 
+                        />
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p>Red areas indicate regions that strongly influenced the model's classification decision</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-100 p-8 rounded-lg text-center">
+                        <p className="text-gray-600">Heatmap not available. Click "Analyze Image" to generate.</p>
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
             ) : (

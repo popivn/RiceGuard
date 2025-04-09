@@ -5,6 +5,8 @@ numpy
 opencv-python
 tensorflow
 torch
+torchvision
+matplotlib
 ultralytics
 pillow
 python-dotenv
