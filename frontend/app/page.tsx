@@ -20,6 +20,10 @@ export default function Home() {
   const [loadingExplanation, setLoadingExplanation] = useState(false)
   const [heatmapImage, setHeatmapImage] = useState<string | null>(null)
   const [loadingHeatmap, setLoadingHeatmap] = useState(false)
+  const [detectionImage, setDetectionImage] = useState<string | null>(null)
+  const [loadingDetection, setLoadingDetection] = useState(false)
+  const [combinedHeatmap, setCombinedHeatmap] = useState<string | null>(null)
+  const [loadingCombined, setLoadingCombined] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -34,6 +38,8 @@ export default function Home() {
       setError(null)
       setExplanation("")
       setHeatmapImage(null)
+      setDetectionImage(null)
+      setCombinedHeatmap(null)
     }
   }
 
@@ -51,6 +57,8 @@ export default function Home() {
       setError(null)
       setExplanation("")
       setHeatmapImage(null)
+      setDetectionImage(null)
+      setCombinedHeatmap(null)
     }
   }
 
@@ -65,6 +73,8 @@ export default function Home() {
     setError(null)
     setExplanation("")
     setHeatmapImage(null)
+    setDetectionImage(null)
+    setCombinedHeatmap(null)
   }
 
   const analyzeImage = async () => {
@@ -74,6 +84,8 @@ export default function Home() {
     setError(null)
     setExplanation("")
     setHeatmapImage(null)
+    setDetectionImage(null)
+    setCombinedHeatmap(null)
 
     try {
       const formData = new FormData()
@@ -102,8 +114,10 @@ export default function Home() {
 
       setResults(data)
       
-      // After successful analysis, fetch the heatmap
+      // After successful analysis, fetch the visualization images
       fetchHeatmap()
+      fetchDetectionImage()
+      fetchCombinedHeatmap()
     } catch (err) {
       console.error("Error details:", err)
       setError(err instanceof Error ? err.message : "An unknown error occurred")
@@ -138,6 +152,62 @@ export default function Home() {
       // Don't set an error message here to avoid disrupting the main flow
     } finally {
       setLoadingHeatmap(false)
+    }
+  }
+
+  const fetchDetectionImage = async () => {
+    if (!file) return
+
+    setLoadingDetection(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/detect_with_boxes`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch detection image: ${response.status}`)
+      }
+
+      // Get the response as a blob
+      const blob = await response.blob()
+      const imageUrl = URL.createObjectURL(blob)
+      setDetectionImage(imageUrl)
+    } catch (err) {
+      console.error("Error fetching detection image:", err)
+    } finally {
+      setLoadingDetection(false)
+    }
+  }
+
+  const fetchCombinedHeatmap = async () => {
+    if (!file) return
+
+    setLoadingCombined(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/detect_with_combined_heatmap`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch combined heatmap: ${response.status}`)
+      }
+
+      // Get the response as a blob
+      const blob = await response.blob()
+      const imageUrl = URL.createObjectURL(blob)
+      setCombinedHeatmap(imageUrl)
+    } catch (err) {
+      console.error("Error fetching combined heatmap:", err)
+    } finally {
+      setLoadingCombined(false)
     }
   }
 
@@ -258,6 +328,9 @@ export default function Home() {
                   <TabsTrigger value="heatmap" className="flex-1">
                     Heatmap
                   </TabsTrigger>
+                  <TabsTrigger value="combined" className="flex-1">
+                    Combined
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="diagnosis" className="space-y-4 mt-4">
@@ -320,37 +393,55 @@ export default function Home() {
                 </TabsContent>
 
                 <TabsContent value="detection" className="mt-4">
-                  <div className="relative">
-                    {preview && (
-                      <img src={preview || "/placeholder.svg"} alt="Lemon Leaf" className="w-full rounded-lg" />
-                    )}
-                    {results.yolo_detections && results.yolo_detections.length > 0 ? (
-                      results.yolo_detections.map((box: any, index: number) => (
-                        <div
-                          key={index}
-                          className="absolute border-2 border-yellow-500 rounded-sm flex items-center justify-center"
-                          style={{
-                            left: `${box.box[0]}%`,
-                            top: `${box.box[1]}%`,
-                            width: `${box.box[2] - box.box[0]}%`,
-                            height: `${box.box[3] - box.box[1]}%`,
-                          }}
-                        >
-                          <span className="bg-yellow-500 text-xs text-black px-1 absolute -top-5 left-0">
-                            {box.class_name} ({(box.confidence * 100).toFixed(0)}%)
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
-                        <div className="bg-white p-4 rounded-md shadow-md">
-                          <p className="text-center font-medium">No specific disease areas detected</p>
-                        </div>
+                  {loadingDetection ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Skeleton className="h-64 w-full rounded-lg" />
+                      <p className="mt-4 text-sm text-gray-500">Processing detection visualization...</p>
+                    </div>
+                  ) : detectionImage ? (
+                    <div className="relative">
+                      <img 
+                        src={detectionImage} 
+                        alt="YOLO Detection" 
+                        className="w-full h-auto rounded-lg object-contain max-h-[400px]" 
+                      />
+                      <div className="mt-2 text-sm text-gray-600">
+                        <p>Yellow boxes indicate detected disease regions</p>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {preview && (
+                        <img src={preview || "/placeholder.svg"} alt="Lemon Leaf" className="w-full rounded-lg" />
+                      )}
+                      {results?.yolo_detections && results.yolo_detections.length > 0 ? (
+                        results.yolo_detections.map((box: any, index: number) => (
+                          <div
+                            key={index}
+                            className="absolute border-2 border-yellow-500 rounded-sm flex items-center justify-center"
+                            style={{
+                              left: `${box.box[0]}%`,
+                              top: `${box.box[1]}%`,
+                              width: `${box.box[2] - box.box[0]}%`,
+                              height: `${box.box[3] - box.box[1]}%`,
+                            }}
+                          >
+                            <span className="bg-yellow-500 text-xs text-black px-1 absolute -top-5 left-0">
+                              {box.class_name} ({(box.confidence * 100).toFixed(0)}%)
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
+                          <div className="bg-white p-4 rounded-md shadow-md">
+                            <p className="text-center font-medium">No specific disease areas detected</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm mt-2 text-gray-500">
-                    {!results.yolo_detections || results.yolo_detections.length === 0
+                    {!results?.yolo_detections || results.yolo_detections.length === 0
                       ? "No specific disease patterns detected in this image"
                       : `${results.yolo_detections.length} disease area(s) detected`}
                   </p>
@@ -382,6 +473,37 @@ export default function Home() {
                     ) : (
                       <div className="bg-gray-100 p-8 rounded-lg text-center">
                         <p className="text-gray-600">Heatmap not available. Click "Analyze Image" to generate.</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="combined" className="mt-4">
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">Combined Detection and Heatmap</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      This shows disease areas with targeted heatmap visualization for each detected region
+                    </p>
+                    
+                    {loadingCombined ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <Skeleton className="h-64 w-full rounded-lg" />
+                        <p className="mt-4 text-sm text-gray-500">Generating combined visualization...</p>
+                      </div>
+                    ) : combinedHeatmap ? (
+                      <div className="relative">
+                        <img 
+                          src={combinedHeatmap} 
+                          alt="Combined Detection and Heatmap" 
+                          className="w-full h-auto rounded-lg object-contain max-h-[400px]" 
+                        />
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p>Yellow boxes show detected regions with heatmap visualization inside each region</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-100 p-8 rounded-lg text-center">
+                        <p className="text-gray-600">Combined visualization not available. Click "Analyze Image" to generate.</p>
                       </div>
                     )}
                   </div>
