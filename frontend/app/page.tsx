@@ -2,15 +2,263 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { Upload, X } from 'lucide-react'
+import { useState, useEffect, useRef } from "react"
+import { Upload, X, Send, Bot, Loader2, MessageCircle, FileDown, Printer, Globe } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { generateExplanation } from "./action/generate-explanation"
+import { generateExplanation, chatWithAssistant } from "./action/generate-explanation"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
+import { Avatar } from "@/components/ui/avatar"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { useLanguage } from "@/lib/i18n/language-context"
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu"
+
+// Simple inline language switcher component
+function LanguageSwitcher() {
+  const { language, changeLanguage, availableLanguages } = useLanguage()
+  
+  const languageNames: Record<string, string> = {
+    en: "English",
+    vi: "Tiếng Việt"
+  }
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
+          <Globe className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {availableLanguages.map((lang) => (
+          <DropdownMenuItem
+            key={lang}
+            onClick={() => changeLanguage(lang)}
+            className={lang === language ? "font-bold bg-accent" : ""}
+          >
+            {languageNames[lang] || lang}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+// Simple inline PDF export button
+function PDFExportButton({ resultsData, explanation, imageDataURL }: {
+  resultsData: any,
+  explanation: string,
+  imageDataURL: string | null
+}) {
+  const { t } = useLanguage()
+  const [isPrinting, setIsPrinting] = useState(false)
+  
+  // Helper to format current date
+  const formatDate = () => {
+    const now = new Date()
+    return new Intl.DateTimeFormat('default', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(now)
+  }
+  
+  // Generate printable content
+  const preparePrint = () => {
+    setIsPrinting(true)
+    
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      alert('Please allow popups for this website')
+      setIsPrinting(false)
+      return
+    }
+    
+    // Determine disease status
+    const isEmptyDetection = !resultsData?.yolo_detections || resultsData.yolo_detections.length === 0
+    const diagnosisName = isEmptyDetection 
+      ? t('diagnosis.noDetection')
+      : resultsData?.mobilenet_classification?.class_name || 'Unknown'
+    const confidence = isEmptyDetection 
+      ? '0' 
+      : ((resultsData?.mobilenet_classification?.confidence || 0) * 100).toFixed(2)
+      
+    // Write HTML content to the print window
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${t('export.title')}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          h1, h2, h3 {
+            color: #2e7d32;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+          }
+          .image-container {
+            text-align: center;
+            margin: 20px 0;
+          }
+          img {
+            max-width: 100%;
+            max-height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+          }
+          .info-box {
+            background-color: #f5f5f5;
+            border-left: 4px solid #2e7d32;
+            padding: 15px;
+            margin: 20px 0;
+          }
+          .warning-box {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+          }
+          .footer {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            font-size: 12px;
+            text-align: center;
+            color: #757575;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+          }
+          table, th, td {
+            border: 1px solid #ddd;
+          }
+          th, td {
+            padding: 12px;
+            text-align: left;
+          }
+          th {
+            background-color: #f5f5f5;
+          }
+          @media print {
+            body {
+              padding: 0;
+              margin: 0;
+            }
+            .no-print {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${t('export.title')}</h1>
+          <p>${t('export.date', { date: formatDate() })}</p>
+        </div>
+        
+        <div class="info-box">
+          <h2>${diagnosisName}</h2>
+          ${!isEmptyDetection ? `<p>${t('diagnosis.confidence', { value: confidence })}</p>` : ''}
+        </div>
+        
+        <div class="image-container">
+          ${imageDataURL ? `<img src="${imageDataURL}" alt="Analyzed Image" />` : '<p>No image available</p>'}
+        </div>
+        
+        <h3>${t('diagnosis.details')}</h3>
+        <p>${explanation}</p>
+        
+        ${isEmptyDetection ? `
+        <div class="warning-box">
+          <p><strong>${t('diagnosis.warning')}</strong> ${t('diagnosis.notAccurate')}</p>
+          <p>${t('diagnosis.couldMean')}</p>
+          <ul>
+            <li>${t('diagnosis.reason1')}</li>
+            <li>${t('diagnosis.reason2')}</li>
+            <li>${t('diagnosis.reason3')}</li>
+          </ul>
+          <p>${t('diagnosis.consult')}</p>
+        </div>
+        ` : ''}
+        
+        ${!isEmptyDetection && resultsData?.yolo_detections ? `
+        <h3>${t('results.detection')}</h3>
+        <table>
+          <tr>
+            <th>Area</th>
+            <th>Classification</th>
+            <th>Confidence</th>
+          </tr>
+          ${resultsData.yolo_detections.map((det: any, i: number) => `
+          <tr>
+            <td>Area ${i+1}</td>
+            <td>${det.class_name}</td>
+            <td>${(det.confidence * 100).toFixed(2)}%</td>
+          </tr>
+          `).join('')}
+        </table>
+        ` : ''}
+        
+        <div class="footer">
+          <p>Generated by Lemon Disease Detection System</p>
+        </div>
+        
+        <div class="no-print" style="text-align: center; margin-top: 20px;">
+          <button onclick="window.print()" style="padding: 10px 20px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            ${t('export.print')}
+          </button>
+        </div>
+      </body>
+      </html>
+    `)
+    
+    printWindow.document.close()
+    setIsPrinting(false)
+  }
+  
+  return (
+    <Button 
+      variant="outline" 
+      size="sm" 
+      className="flex items-center gap-1"
+      onClick={preparePrint}
+      disabled={isPrinting || !resultsData}
+    >
+      {isPrinting ? <Printer className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+      <span>{t('export.pdf')}</span>
+    </Button>
+  )
+}
 
 export default function Home() {
+  const { t } = useLanguage()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -24,6 +272,14 @@ export default function Home() {
   const [loadingDetection, setLoadingDetection] = useState(false)
   const [combinedHeatmap, setCombinedHeatmap] = useState<string | null>(null)
   const [loadingCombined, setLoadingCombined] = useState(false)
+  
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Array<{role: string, content: string}>>([])
+  const [chatInput, setChatInput] = useState("")
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [hasNewResults, setHasNewResults] = useState(false)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -40,6 +296,7 @@ export default function Home() {
       setHeatmapImage(null)
       setDetectionImage(null)
       setCombinedHeatmap(null)
+      setChatMessages([])
     }
   }
 
@@ -59,6 +316,7 @@ export default function Home() {
       setHeatmapImage(null)
       setDetectionImage(null)
       setCombinedHeatmap(null)
+      setChatMessages([])
     }
   }
 
@@ -75,6 +333,7 @@ export default function Home() {
     setHeatmapImage(null)
     setDetectionImage(null)
     setCombinedHeatmap(null)
+    setChatMessages([])
   }
 
   const analyzeImage = async () => {
@@ -86,6 +345,7 @@ export default function Home() {
     setHeatmapImage(null)
     setDetectionImage(null)
     setCombinedHeatmap(null)
+    setChatMessages([])
 
     try {
       const formData = new FormData()
@@ -213,8 +473,8 @@ export default function Home() {
 
   // Helper function to get the appropriate color for disease status
   const getDiseaseStatusColor = (className: string) => {
-    if (className === "healthy") return "text-green-600"
-    return "text-red-600"
+    if (className === "healthy") return "text-green-600 dark:text-green-400"
+    return "text-red-600 dark:text-red-400"
   }
 
   // Helper function to check if YOLO detection is empty
@@ -239,6 +499,23 @@ export default function Home() {
 
         const explanation = await generateExplanation(diseaseName)
         setExplanation(explanation)
+        
+        // Add initial welcome message to chat after analysis
+        if (diseaseName !== "no detection") {
+          setChatMessages([
+            {
+              role: "assistant",
+              content: `I've analyzed your lemon plant image and detected ${diseaseName}. How can I help you with information about this disease?`
+            }
+          ])
+        } else {
+          setChatMessages([
+            {
+              role: "assistant",
+              content: "I've analyzed your image but couldn't detect any specific disease patterns. You can still ask me questions about lemon plant diseases in general."
+            }
+          ])
+        }
       } catch (error) {
         console.error("Error fetching explanation:", error)
         setExplanation("Unable to generate explanation at this time.")
@@ -252,25 +529,98 @@ export default function Home() {
     }
   }, [results])
 
+  // Scroll to bottom of chat when messages change
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [chatMessages])
+
+  // Handle chat submission
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!chatInput.trim() || isChatLoading) return
+    
+    const userMessage = chatInput.trim()
+    setChatInput("")
+    
+    // Add user message to chat
+    setChatMessages(prev => [...prev, { role: "user", content: userMessage }])
+    
+    setIsChatLoading(true)
+    
+    try {
+      // Get disease name from results
+      let diseaseName = "unknown"
+      if (results) {
+        if (isEmptyYoloDetection(results)) {
+          diseaseName = "no detection"
+        } else {
+          diseaseName = results.mobilenet_classification.class_name
+        }
+      }
+      
+      // Call the chat API
+      const response = await chatWithAssistant(userMessage, diseaseName, explanation)
+      
+      // Add assistant response to chat
+      setChatMessages(prev => [...prev, { role: "assistant", content: response }])
+    } catch (error) {
+      console.error("Error in chat:", error)
+      setChatMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "I'm sorry, I encountered an error processing your request. Please try again." 
+      }])
+    } finally {
+      setIsChatLoading(false)
+    }
+  }
+
+  // Scroll to bottom of chat when new messages appear
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, isChatLoading]);
+
+  // Set notification indicator when new results are available
+  useEffect(() => {
+    if (results && !isChatOpen) {
+      setHasNewResults(true);
+    }
+  }, [results, isChatOpen]);
+  
+  // Clear notification when chat is opened
+  useEffect(() => {
+    if (isChatOpen) {
+      setHasNewResults(false);
+    }
+  }, [isChatOpen]);
+
   return (
-    <main className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-3xl font-bold text-center mb-8">Lemon Disease Detection</h1>
+    <main className="container mx-auto py-6 px-4">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">{t('app.title')}</h1>
+        <div className="flex gap-2">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <Card className="p-4">
-            <h2 className="text-xl font-semibold mb-4">Upload Lemon Fruit Image</h2>
+            <h2 className="text-xl font-semibold mb-4">{t('app.upload')}</h2>
 
             {!preview ? (
               <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+                className="border-2 border-dashed border-border rounded-lg p-12 text-center cursor-pointer hover:bg-muted/50 transition-colors"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onClick={() => document.getElementById("file-upload")?.click()}
               >
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-600">Drag and drop or click to upload</p>
-                <p className="text-xs text-gray-500 mt-1">Supports JPG, PNG</p>
+                <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">{t('upload.drag')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('upload.supports')}</p>
                 <input
                   id="file-upload"
                   type="file"
@@ -299,16 +649,25 @@ export default function Home() {
             )}
 
             <Button className="w-full mt-4" disabled={!file || loading} onClick={analyzeImage}>
-              {loading ? "Analyzing..." : "Analyze Image"}
+              {loading ? t('upload.analyzing') : t('upload.analyze')}
             </Button>
 
-            {error && <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
+            {error && <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md text-sm">{error}</div>}
           </Card>
         </div>
 
         <div>
           <Card className="p-4 h-full">
-            <h2 className="text-xl font-semibold mb-4">Analysis Results</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">{t('app.results')}</h2>
+              {results && (
+                <PDFExportButton 
+                  resultsData={results} 
+                  explanation={explanation} 
+                  imageDataURL={preview}
+                />
+              )}
+            </div>
 
             {loading ? (
               <div className="space-y-4">
@@ -320,31 +679,31 @@ export default function Home() {
               <Tabs defaultValue="diagnosis">
                 <TabsList className="w-full">
                   <TabsTrigger value="diagnosis" className="flex-1">
-                    Diagnosis
+                    {t('results.diagnosis')}
                   </TabsTrigger>
                   <TabsTrigger value="detection" className="flex-1">
-                    Detection
+                    {t('results.detection')}
                   </TabsTrigger>
                   <TabsTrigger value="heatmap" className="flex-1">
-                    Heatmap
+                    {t('results.heatmap')}
                   </TabsTrigger>
                   <TabsTrigger value="combined" className="flex-1">
-                    Combined
+                    {t('results.combined')}
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="diagnosis" className="space-y-4 mt-4">
                   {isEmptyYoloDetection(results) ? (
-                    <div className="bg-gray-100 p-4 rounded-lg">
+                    <div className="bg-muted p-4 rounded-lg">
                       <h3 className="font-medium text-lg">
-                        Diagnosis: <span className="text-yellow-600">No specific disease areas detected</span>
+                        {t('results.diagnosis')}: <span className="text-yellow-600 dark:text-yellow-400">{t('diagnosis.noDetection')}</span>
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        The system could not identify specific disease patterns in this image.
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t('diagnosis.noDetectionExplanation')}
                       </p>
 
                       <div className="mt-4">
-                        <h3 className="font-medium mb-2">Details:</h3>
+                        <h3 className="font-medium mb-2">{t('diagnosis.details')}</h3>
                         {loadingExplanation ? (
                           <Skeleton className="h-16 w-full" />
                         ) : (
@@ -352,36 +711,36 @@ export default function Home() {
                         )}
                       </div>
 
-                      <div className="mt-4 p-3 bg-yellow-100 text-yellow-700 rounded-md text-sm">
-                        <p className="font-semibold">Warning:</p>
+                      <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-md text-sm">
+                        <p className="font-semibold">{t('diagnosis.warning')}</p>
                         <p>
-                          No specific disease patterns were detected in this image. The diagnosis may not be accurate.
+                          {t('diagnosis.notAccurate')}
                         </p>
-                        <p className="mt-2">This could mean:</p>
+                        <p className="mt-2">{t('diagnosis.couldMean')}</p>
                         <ul className="list-disc ml-5 mt-1">
-                          <li>The image doesn't contain any recognizable disease patterns</li>
-                          <li>The disease is at an early stage or difficult to detect</li>
-                          <li>The image quality or lighting may be affecting analysis</li>
+                          <li>{t('diagnosis.reason1')}</li>
+                          <li>{t('diagnosis.reason2')}</li>
+                          <li>{t('diagnosis.reason3')}</li>
                         </ul>
-                        <p className="mt-2">Consider consulting with a plant pathologist for proper diagnosis.</p>
+                        <p className="mt-2">{t('diagnosis.consult')}</p>
                       </div>
                     </div>
                   ) : (
                     <>
-                      <div className="bg-gray-100 p-4 rounded-lg">
+                      <div className="bg-muted p-4 rounded-lg">
                         <h3 className="font-medium text-lg">
-                          Diagnosis:{" "}
+                          {t('results.diagnosis')}:{" "}
                           <span className={getDiseaseStatusColor(results.mobilenet_classification.class_name)}>
                             {results.mobilenet_classification.class_name}
                           </span>
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Confidence: {(results.mobilenet_classification.confidence * 100).toFixed(2)}%
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {t('diagnosis.confidence', { value: (results.mobilenet_classification.confidence * 100).toFixed(2) })}
                         </p>
                       </div>
 
                       <div>
-                        <h3 className="font-medium mb-2">Details:</h3>
+                        <h3 className="font-medium mb-2">{t('diagnosis.details')}</h3>
                         {loadingExplanation ? (
                           <Skeleton className="h-16 w-full" />
                         ) : (
@@ -396,16 +755,16 @@ export default function Home() {
                   {loadingDetection ? (
                     <div className="flex flex-col items-center justify-center py-8">
                       <Skeleton className="h-64 w-full rounded-lg" />
-                      <p className="mt-4 text-sm text-gray-500">Processing detection visualization...</p>
+                      <p className="mt-4 text-sm text-muted-foreground">Processing detection visualization...</p>
                     </div>
                   ) : detectionImage ? (
                     <div className="relative">
                       <img 
-                        src={detectionImage} 
+                        src={detectionImage || "/placeholder.svg"} 
                         alt="YOLO Detection" 
                         className="w-full h-auto rounded-lg object-contain max-h-[400px]" 
                       />
-                      <div className="mt-2 text-sm text-gray-600">
+                      <div className="mt-2 text-sm text-muted-foreground">
                         <p>Yellow boxes indicate detected disease regions</p>
                       </div>
                     </div>
@@ -433,14 +792,14 @@ export default function Home() {
                         ))
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
-                          <div className="bg-white p-4 rounded-md shadow-md">
+                          <div className="bg-card p-4 rounded-md shadow-md">
                             <p className="text-center font-medium">No specific disease areas detected</p>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
-                  <p className="text-sm mt-2 text-gray-500">
+                  <p className="text-sm mt-2 text-muted-foreground">
                     {!results?.yolo_detections || results.yolo_detections.length === 0
                       ? "No specific disease patterns detected in this image"
                       : `${results.yolo_detections.length} disease area(s) detected`}
@@ -450,14 +809,14 @@ export default function Home() {
                 <TabsContent value="heatmap" className="mt-4">
                   <div className="text-center">
                     <h3 className="font-medium mb-2">Grad-CAM Heatmap Visualization</h3>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                       This visualization highlights the regions that influenced the model's decision
                     </p>
                     
                     {loadingHeatmap ? (
                       <div className="flex flex-col items-center justify-center py-8">
                         <Skeleton className="h-64 w-full rounded-lg" />
-                        <p className="mt-4 text-sm text-gray-500">Generating heatmap visualization...</p>
+                        <p className="mt-4 text-sm text-muted-foreground">Generating heatmap visualization...</p>
                       </div>
                     ) : heatmapImage ? (
                       <div className="relative">
@@ -466,13 +825,13 @@ export default function Home() {
                           alt="Grad-CAM Heatmap" 
                           className="w-full h-auto rounded-lg object-contain max-h-[400px]" 
                         />
-                        <div className="mt-2 text-sm text-gray-600">
+                        <div className="mt-2 text-sm text-muted-foreground">
                           <p>Red areas indicate regions that strongly influenced the model's classification decision</p>
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-gray-100 p-8 rounded-lg text-center">
-                        <p className="text-gray-600">Heatmap not available. Click "Analyze Image" to generate.</p>
+                      <div className="bg-muted p-8 rounded-lg text-center">
+                        <p className="text-muted-foreground">Heatmap not available. Click "Analyze Image" to generate.</p>
                       </div>
                     )}
                   </div>
@@ -481,41 +840,143 @@ export default function Home() {
                 <TabsContent value="combined" className="mt-4">
                   <div className="text-center">
                     <h3 className="font-medium mb-2">Combined Detection and Heatmap</h3>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                       This shows disease areas with targeted heatmap visualization for each detected region
                     </p>
                     
                     {loadingCombined ? (
                       <div className="flex flex-col items-center justify-center py-8">
                         <Skeleton className="h-64 w-full rounded-lg" />
-                        <p className="mt-4 text-sm text-gray-500">Generating combined visualization...</p>
+                        <p className="mt-4 text-sm text-muted-foreground">Generating combined visualization...</p>
                       </div>
                     ) : combinedHeatmap ? (
                       <div className="relative">
                         <img 
-                          src={combinedHeatmap} 
+                          src={combinedHeatmap || "/placeholder.svg"} 
                           alt="Combined Detection and Heatmap" 
                           className="w-full h-auto rounded-lg object-contain max-h-[400px]" 
                         />
-                        <div className="mt-2 text-sm text-gray-600">
+                        <div className="mt-2 text-sm text-muted-foreground">
                           <p>Yellow boxes show detected regions with heatmap visualization inside each region</p>
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-gray-100 p-8 rounded-lg text-center">
-                        <p className="text-gray-600">Combined visualization not available. Click "Analyze Image" to generate.</p>
+                      <div className="bg-muted p-8 rounded-lg text-center">
+                        <p className="text-muted-foreground">Combined visualization not available. Click "Analyze Image" to generate.</p>
                       </div>
                     )}
                   </div>
                 </TabsContent>
               </Tabs>
             ) : (
-              <div className="text-center py-12 text-gray-500">
-                <p>Upload and analyze a lemon leaf image to see results</p>
+              <div className="text-center py-12 text-muted-foreground">
+                <p>{t('results.none')}</p>
               </div>
             )}
           </Card>
         </div>
+      </div>
+
+      {/* Floating Chat Button */}
+      <div className="fixed bottom-4 right-4 z-50">
+        {!isChatOpen ? (
+          <div className="relative">
+            <Button 
+              onClick={() => setIsChatOpen(true)} 
+              size="icon" 
+              className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 transition-transform hover:scale-105"
+            >
+              <MessageCircle size={24} />
+            </Button>
+            {hasNewResults && (
+              <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full animate-pulse"></span>
+            )}
+          </div>
+        ) : (
+          <div className="bg-card text-card-foreground rounded-lg shadow-xl w-80 md:w-96 flex flex-col overflow-hidden border border-border animate-in zoom-in-90 slide-in-from-bottom-10 duration-200">
+            <div className="bg-green-600 text-white p-3 flex justify-between items-center">
+              <div className="flex items-center">
+                <Bot size={20} className="mr-2" />
+                <h2 className="font-medium">{t('app.assistant')}</h2>
+              </div>
+              <Button 
+                onClick={() => setIsChatOpen(false)} 
+                variant="ghost" 
+                className="h-8 w-8 p-0 text-white hover:bg-green-700"
+              >
+                <X size={18} />
+              </Button>
+            </div>
+            
+            <ScrollArea className="p-3 h-80 flex-1">
+              {chatMessages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-center p-4">
+                  <div>
+                    <Bot size={40} className="mx-auto mb-2 opacity-50" />
+                    <p>{t('chat.startMessage')}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {chatMessages.map((msg, index) => (
+                    <div 
+                      key={index} 
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`flex items-start max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <Avatar className={`${msg.role === 'user' ? 'ml-2' : 'mr-2'} h-8 w-8 ${msg.role === 'assistant' ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                          {msg.role === 'assistant' ? <Bot size={16} /> : <div className="text-xs">You</div>}
+                        </Avatar>
+                        <div 
+                          className={`p-3 rounded-lg ${
+                            msg.role === 'user' 
+                              ? 'bg-green-600 text-white rounded-tr-none' 
+                              : 'bg-muted dark:bg-card border border-border rounded-tl-none'
+                          }`}
+                        >
+                          {msg.content}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {isChatLoading && (
+                    <div className="flex justify-start">
+                      <div className="flex items-start max-w-[80%]">
+                        <Avatar className="mr-2 h-8 w-8 bg-green-100 dark:bg-green-900">
+                          <Bot size={16} />
+                        </Avatar>
+                        <div className="p-3 rounded-lg bg-muted dark:bg-card border border-border rounded-tl-none">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
+            </ScrollArea>
+            
+            <div className="p-3 border-t border-border">
+              <form onSubmit={handleChatSubmit} className="flex items-end gap-2">
+                <Textarea 
+                  placeholder={results ? t('chat.placeholder') : t('chat.analyzeFirst')} 
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  className="resize-none min-h-[60px] bg-card dark:bg-card"
+                  disabled={!results || isChatLoading}
+                />
+                <Button 
+                  type="submit" 
+                  size="icon" 
+                  className="h-[60px] w-[60px]"
+                  disabled={!results || !chatInput.trim() || isChatLoading}
+                >
+                  {isChatLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send />}
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )
