@@ -16,6 +16,7 @@ from torchvision import models, transforms
 from torchcam.methods import CAM, GradCAM, GradCAMpp  # Using GradCAMpp instead of GradCAMPlusPlus
 from fastapi.responses import Response
 import matplotlib.pyplot as plt
+import cv2
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -147,6 +148,10 @@ preprocess = transforms.Compose([
 ])
 
 def apply_gradcam(image: Image.Image):
+    # Ensure image is in RGB format
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
+        
     # Preprocess the image
     input_tensor = preprocess(image).unsqueeze(0)  # Add batch dimension
     
@@ -237,7 +242,7 @@ def apply_gradcam(image: Image.Image):
     img_np = np.array(image)
     
     # Ensure dimensions match for overlay
-    if img_np.shape[2] == 4:  # If image has alpha channel
+    if img_np.ndim > 2 and img_np.shape[2] == 4:  # If image has alpha channel
         img_np = img_np[:, :, :3]  # Remove alpha channel
     
     # Resize cam_colored if dimensions don't match
@@ -278,6 +283,10 @@ async def detect_image(file: UploadFile = File(...)):
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
         
+        # Ensure image is in RGB format (convert from RGBA if needed)
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+        
         # Get models (cached)
         yolo_model = get_yolo_model()
         mobilenet_model = get_mobilenet_model()
@@ -309,6 +318,11 @@ async def detect_image(file: UploadFile = File(...)):
         
         # Convert to array and preprocess more efficiently
         mobilenet_img = np.array(mobilenet_img, dtype=np.float32)
+        
+        # Ensure we have only 3 channels (RGB)
+        if mobilenet_img.shape[-1] == 4:  # If RGBA
+            mobilenet_img = mobilenet_img[:, :, :3]  # Take only RGB channels
+        
         mobilenet_img = np.expand_dims(mobilenet_img, axis=0)
         mobilenet_img = preprocess_input(mobilenet_img)
         
@@ -351,6 +365,10 @@ async def detect_image_with_gradcam(file: UploadFile = File(...)):
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
         
+        # Ensure image is in RGB format
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+        
         # Apply Grad-CAM++ to the image
         result_image = apply_gradcam(image)
         
@@ -370,4 +388,151 @@ async def detect_image_with_gradcam(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=500, 
             detail=f"Error processing image with Grad-CAM++: {str(e)}"
+        )
+
+@app.post("/detect_with_boxes")
+async def detect_image_with_boxes(file: UploadFile = File(...)):
+    try:
+        # Read image data
+        image_data = await file.read()
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Ensure image is in RGB format
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+        
+        # Get the YOLO model and perform detection
+        yolo_model = get_yolo_model()
+        yolo_results = yolo_model(image, verbose=False)
+        
+        # Draw the bounding boxes directly on the image
+        annotated_image = yolo_results[0].plot()
+        
+        # Convert the annotated image to bytes
+        buffered = io.BytesIO()
+        # Convert numpy array to PIL Image first
+        Image.fromarray(annotated_image).save(buffered, format="JPEG")
+        annotated_image_data = buffered.getvalue()
+        
+        # Return the image with YOLO detection boxes
+        return Response(
+            content=annotated_image_data,
+            media_type="image/jpeg"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error processing image with YOLO boxes: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error processing image with YOLO boxes: {str(e)}"
+        )
+
+@app.post("/detect_with_combined_heatmap")
+async def detect_with_combined_heatmap(file: UploadFile = File(...)):
+    try:
+        # Read image data
+        image_data = await file.read()
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Ensure image is in RGB format
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+            
+        original_image = image.copy()
+        
+        # Get models
+        yolo_model = get_yolo_model()
+        
+        # Process with YOLO model for object detection
+        yolo_results = yolo_model(image, verbose=False)
+        
+        # Extract bounding boxes
+        detected_boxes = []
+        for result in yolo_results:
+            boxes = result.boxes
+            for i in range(len(boxes)):
+                x1, y1, x2, y2 = boxes.xyxy[i].tolist()
+                detected_boxes.append([int(x1), int(y1), int(x2), int(y2)])
+        
+        # If no boxes detected, apply heatmap to entire image
+        if not detected_boxes:
+            result_image = apply_gradcam(original_image)
+        else:
+            # Apply heatmap to each detected region
+            # Start with original image
+            combined_img = np.array(original_image)
+            
+            # Ensure combined_img is RGB (3 channels) for OpenCV operations
+            if combined_img.ndim > 2 and combined_img.shape[2] == 4:
+                combined_img = combined_img[:, :, :3]
+            
+            for box in detected_boxes:
+                x1, y1, x2, y2 = box
+                # Crop region
+                region = original_image.crop((x1, y1, x2, y2))
+                
+                # Skip regions that are too small
+                if region.width < 10 or region.height < 10:
+                    continue
+                    
+                # Apply GradCAM to region
+                region_heatmap = apply_gradcam(region)
+                region_heatmap_np = np.array(region_heatmap)
+                
+                # Paste region back
+                try:
+                    # Make sure dimensions match when pasting back
+                    region_height, region_width = region_heatmap_np.shape[:2]
+                    target_height = y2 - y1
+                    target_width = x2 - x1
+                    
+                    if region_height != target_height or region_width != target_width:
+                        region_heatmap_np = np.array(
+                            Image.fromarray(region_heatmap_np).resize((target_width, target_height))
+                        )
+                    
+                    # Ensure region_heatmap_np is RGB for consistency
+                    if region_heatmap_np.ndim > 2 and region_heatmap_np.shape[2] == 4:
+                        region_heatmap_np = region_heatmap_np[:, :, :3]
+                        
+                    # Paste the heatmap region into the combined image
+                    combined_img[y1:y2, x1:x2] = region_heatmap_np
+                except Exception as e:
+                    logger.warning(f"Error pasting region: {str(e)}")
+                    continue
+            
+            # Draw bounding boxes on top
+            try:
+                for box in detected_boxes:
+                    x1, y1, x2, y2 = box
+                    # Draw rectangle with OpenCV
+                    combined_img = cv2.rectangle(
+                        combined_img.astype(np.uint8), 
+                        (x1, y1), 
+                        (x2, y2), 
+                        (255, 255, 0), 
+                        2
+                    )
+            except Exception as e:
+                logger.warning(f"Error drawing rectangles: {str(e)}")
+            
+            # Convert back to PIL Image
+            result_image = Image.fromarray(combined_img.astype(np.uint8))
+        
+        # Convert result to bytes
+        buffered = io.BytesIO()
+        result_image.save(buffered, format="JPEG")
+        result_image_data = buffered.getvalue()
+        
+        # Return the combined image
+        return Response(
+            content=result_image_data,
+            media_type="image/jpeg"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error creating combined detection and heatmap: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating combined detection and heatmap: {str(e)}"
         )
