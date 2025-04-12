@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: my-frontend
+    name: lemonai-popivn
     runtime: node
     plan: free
     buildCommand: |
@@ -10,15 +10,3 @@ services:
     startCommand: |
       cd frontend
       npm run start
-
-  - type: web
-    name: my-backend
-    runtime: python
-    plan: free
-    buildCommand: |
-      cd backend
-      pip install -r requirements.txt
-    startCommand: |
-      cd backend
-      uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload
-      ssh -i CS-Linux-20250412045049287.pem -p 24700 root@103.75.184.179
