@@ -897,6 +897,54 @@ export default function DetectPage() {
                   <div>
                     <Bot size={40} className="mx-auto mb-2 opacity-50" />
                     <p>{t('chat.startMessage')}</p>
+                    
+                    {results && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm font-medium">{t('chat.quickQuestions')}</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => {
+                              setChatInput(t('chat.quickQuestion1', { disease: results.mobilenet_classification.class_name }));
+                            }}
+                          >
+                            {t('chat.quickQuestion1Button')}
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => {
+                              setChatInput(t('chat.quickQuestion2', { disease: results.mobilenet_classification.class_name }));
+                            }}
+                          >
+                            {t('chat.quickQuestion2Button')}
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => {
+                              setChatInput(t('chat.quickQuestion3', { disease: results.mobilenet_classification.class_name }));
+                            }}
+                          >
+                            {t('chat.quickQuestion3Button')}
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => {
+                              setChatInput(t('chat.quickQuestion4', { disease: results.mobilenet_classification.class_name }));
+                            }}
+                          >
+                            {t('chat.quickQuestion4Button')}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
