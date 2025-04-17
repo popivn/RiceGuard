@@ -18,7 +18,7 @@ interface ChatInterfaceProps {
   isChatLoading: boolean
   handleChatSubmit: (e: React.FormEvent) => Promise<void>
   results: any
-  chatEndRef: React.RefObject<HTMLDivElement>
+  chatEndRef: React.RefObject<HTMLDivElement | null>
   t: any
 }
 
@@ -26,6 +26,7 @@ export default function ChatInterface({
   isChatOpen,
   setIsChatOpen,
   hasNewResults,
+  setHasNewResults,
   chatMessages,
   chatInput,
   setChatInput,

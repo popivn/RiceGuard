@@ -9,7 +9,7 @@ export function useImageAnalysis(
   file: File | null,
   setHasNewResults: (value: boolean) => void,
   isChatOpen: boolean,
-  chatEndRef: React.RefObject<HTMLDivElement>
+  chatEndRef: React.RefObject<HTMLDivElement | null>
 ) {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<any>(null)
