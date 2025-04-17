@@ -6,9 +6,6 @@ import { Card } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/language-context"
 
-// Use environment variable for API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
-
 interface DiseaseTreatmentProps {
   disease: string
   className?: string
@@ -24,7 +21,7 @@ export default function DiseaseTreatment({ disease, className }: DiseaseTreatmen
   const fetchDiseaseInfo = async (type: 'prevention' | 'treatment') => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/disease-info`, {
+      const response = await fetch('/api/disease-info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
