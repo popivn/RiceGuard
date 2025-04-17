@@ -2,8 +2,8 @@ import { useState, useCallback } from "react"
 import type React from "react"
 import { generateExplanation, chatWithAssistant } from "../app/action/generate-explanation"
 
-// Now we can use relative paths since Next.js will handle the proxy
-// Removed the API_BASE_URL constant
+// Use environment variable for API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
 export function useImageAnalysis(
   file: File | null,
@@ -41,8 +41,8 @@ export function useImageAnalysis(
       const formData = new FormData()
       formData.append("file", file)
 
-      // Send request to API through Next.js proxy
-      const response = await fetch("/api/detect", {
+      // Use API_URL instead of relative path
+      const response = await fetch(`${API_URL}/detect`, {
         method: "POST",
         body: formData,
       })
@@ -74,7 +74,7 @@ export function useImageAnalysis(
       // Generate heatmap
       setLoadingHeatmap(true)
       try {
-        const heatmapResponse = await fetch("/api/detect_with_gradcam", {
+        const heatmapResponse = await fetch(`${API_URL}/detect_with_gradcam`, {
           method: "POST",
           body: formData,
         })
@@ -94,7 +94,7 @@ export function useImageAnalysis(
       // Generate detection image
       setLoadingDetection(true)
       try {
-        const detectionResponse = await fetch("/api/detect_with_boxes", {
+        const detectionResponse = await fetch(`${API_URL}/detect_with_boxes`, {
           method: "POST",
           body: formData,
         })
@@ -114,7 +114,7 @@ export function useImageAnalysis(
       // Generate combined heatmap and detection
       setLoadingCombined(true)
       try {
-        const combinedResponse = await fetch("/api/detect_with_combined_heatmap", {
+        const combinedResponse = await fetch(`${API_URL}/detect_with_combined_heatmap`, {
           method: "POST",
           body: formData,
         })
