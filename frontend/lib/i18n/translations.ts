@@ -105,6 +105,15 @@ export const translations: Languages = {
     "chat.placeholder": "Ask about the detected disease...",
     "chat.analyzeFirst": "Analyze an image first to start chatting",
     "chat.startMessage": "Upload and analyze an image to start chatting about the detected disease",
+    "chat.quickQuestions": "Quick Questions",
+    "chat.quickQuestion1": "What are the symptoms of {disease}?",
+    "chat.quickQuestion2": "How can I treat {disease}?",
+    "chat.quickQuestion3": "How does {disease} spread?",
+    "chat.quickQuestion4": "How can I prevent {disease}?",
+    "chat.quickQuestion1Button": "Symptoms",
+    "chat.quickQuestion2Button": "Treatment",
+    "chat.quickQuestion3Button": "Transmission",
+    "chat.quickQuestion4Button": "Prevention",
     
     // No results state
     "results.none": "Upload and analyze a lemon leaf image to see results",
@@ -117,7 +126,15 @@ export const translations: Languages = {
     "export.pdf": "Export as PDF",
     "export.title": "Disease Analysis Report",
     "export.date": "Analysis Date: {date}",
-    "export.print": "Print Report"
+    "export.print": "Print Report",
+    
+    // Disease treatment and prevention
+    "diseases.prevention": "Prevention",
+    "diseases.treatment": "Treatment",
+    "diseases.preventionFor": "Prevention for {disease}",
+    "diseases.treatmentFor": "Treatment for {disease}",
+    "diseases.fallbackPrevention": "Please ensure your plants have good air circulation, avoid overhead watering, practice good garden hygiene, and consider using preventative fungicides or organic alternatives when appropriate.",
+    "diseases.fallbackTreatment": "Consult with a local agricultural expert for specific treatment guidance. General approaches include removing infected parts, applying appropriate treatments, and ensuring optimal growing conditions."
   },
   vi: {
     // App title and navigation
@@ -217,6 +234,15 @@ export const translations: Languages = {
     "chat.placeholder": "Hỏi về bệnh được phát hiện...",
     "chat.analyzeFirst": "Phân tích hình ảnh trước để bắt đầu trò chuyện",
     "chat.startMessage": "Tải lên và phân tích hình ảnh để bắt đầu trò chuyện về bệnh được phát hiện",
+    "chat.quickQuestions": "Câu Hỏi Nhanh",
+    "chat.quickQuestion1": "Triệu chứng của {disease} là gì?",
+    "chat.quickQuestion2": "Làm thế nào để điều trị {disease}?",
+    "chat.quickQuestion3": "Làm thế nào {disease} lây lan?",
+    "chat.quickQuestion4": "Làm thế nào để ngăn ngừa {disease}?",
+    "chat.quickQuestion1Button": "Triệu chứng",
+    "chat.quickQuestion2Button": "Điều trị",
+    "chat.quickQuestion3Button": "Lây lan",
+    "chat.quickQuestion4Button": "Phòng ngừa",
     
     // No results state
     "results.none": "Tải lên và phân tích hình ảnh lá chanh để xem kết quả",
@@ -229,6 +255,14 @@ export const translations: Languages = {
     "export.pdf": "Xuất dạng PDF",
     "export.title": "Báo Cáo Phân Tích Bệnh",
     "export.date": "Ngày phân tích: {date}",
-    "export.print": "In Báo Cáo"
+    "export.print": "In Báo Cáo",
+    
+    // Disease treatment and prevention
+    "diseases.prevention": "Phòng Ngừa",
+    "diseases.treatment": "Điều Trị",
+    "diseases.preventionFor": "Phòng ngừa {disease}",
+    "diseases.treatmentFor": "Điều trị {disease}",
+    "diseases.fallbackPrevention": "Hãy đảm bảo cây trồng của bạn có sự lưu thông không khí tốt, tránh tưới nước từ trên cao, thực hiện vệ sinh vườn tốt và cân nhắc sử dụng thuốc diệt nấm phòng ngừa hoặc các giải pháp hữu cơ thay thế khi thích hợp.",
+    "diseases.fallbackTreatment": "Tham khảo ý kiến chuyên gia nông nghiệp địa phương để được hướng dẫn điều trị cụ thể. Các phương pháp tiếp cận chung bao gồm loại bỏ các bộ phận bị nhiễm bệnh, áp dụng các biện pháp điều trị thích hợp và đảm bảo điều kiện phát triển tối ưu."
   }
 }; 

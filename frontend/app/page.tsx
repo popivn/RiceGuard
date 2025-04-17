@@ -6,22 +6,22 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { useLanguage } from "@/lib/i18n/language-context"
 import { Globe, ArrowRight, Camera, BarChart2, ClipboardList, Brain } from 'lucide-react'
 import Link from "next/link"
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 
 // Simple inline language switcher component
 function LanguageSwitcher() {
   const { language, changeLanguage, availableLanguages } = useLanguage()
-  
+
   const languageNames: Record<string, string> = {
     en: "English",
     vi: "Tiếng Việt"
   }
-  
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -46,7 +46,7 @@ function LanguageSwitcher() {
 
 export default function AboutPage() {
   const { t } = useLanguage()
-  
+
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
@@ -64,7 +64,7 @@ export default function AboutPage() {
           </div>
         </div>
       </header>
-      
+
       {/* Hero Section */}
       <section className="bg-gradient-to-b from-green-50 to-transparent dark:from-green-950/20 py-16">
         <div className="container mx-auto px-4 text-center">
@@ -79,11 +79,11 @@ export default function AboutPage() {
           </Link>
         </div>
       </section>
-      
+
       {/* Technology Features */}
       <section className="py-16 container mx-auto px-4">
         <h2 className="text-3xl font-bold text-center mb-12 text-foreground">{t('technology.title') || 'Our Technology'}</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <Card className="p-6 flex flex-col items-center text-center hover:shadow-lg transition-shadow">
             <div className="h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
@@ -92,7 +92,7 @@ export default function AboutPage() {
             <h3 className="text-xl font-semibold mb-2">{t('technology.yolo.title') || 'YOLO Object Detection'}</h3>
             <p className="text-muted-foreground">{t('technology.yolo.description') || 'Precise identification of disease-affected areas with bounding boxes using YOLOv8 deep learning model.'}</p>
           </Card>
-          
+
           <Card className="p-6 flex flex-col items-center text-center hover:shadow-lg transition-shadow">
             <div className="h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
               <Brain className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -100,7 +100,7 @@ export default function AboutPage() {
             <h3 className="text-xl font-semibold mb-2">{t('technology.efficientnet.title') || 'EfficientNet Classification'}</h3>
             <p className="text-muted-foreground">{t('technology.efficientnet.description') || 'Accurate disease classification using an optimized EfficientNet model trained on thousands of lemon disease images.'}</p>
           </Card>
-          
+
           <Card className="p-6 flex flex-col items-center text-center hover:shadow-lg transition-shadow">
             <div className="h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
               <BarChart2 className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -110,12 +110,12 @@ export default function AboutPage() {
           </Card>
         </div>
       </section>
-      
+
       {/* AI Performance */}
       <section className="py-16 bg-muted/50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-foreground">{t('performance.title') || 'AI Performance Metrics'}</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card className="p-6">
               <h3 className="text-xl font-semibold mb-4 flex items-center">
@@ -172,7 +172,7 @@ export default function AboutPage() {
                 </table>
               </div>
             </Card>
-            
+
             <Card className="p-6">
               <h3 className="text-xl font-semibold mb-4 flex items-center">
                 <Camera className="h-5 w-5 mr-2 text-green-600" /> {t('performance.yolo.title') || 'YOLO Model Metrics'}
@@ -190,7 +190,7 @@ export default function AboutPage() {
                     <p className="text-xs text-muted-foreground">{t('performance.map50-95.description') || 'Mean Average Precision across IoUs'}</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-muted p-4 rounded-lg">
                     <p className="text-sm text-muted-foreground">{t('performance.precision') || 'Precision'}</p>
@@ -203,7 +203,7 @@ export default function AboutPage() {
                     <p className="text-xs text-muted-foreground">{t('performance.recall.description') || 'True Positives / All Ground Truths'}</p>
                   </div>
                 </div>
-                
+
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground">{t('performance.training.data') || 'Training Data'}</p>
                   <p className="text-lg font-semibold">{t('performance.training.images') || '1,971 Images'}</p>
@@ -214,7 +214,7 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-      
+
       {/* CTA Section */}
       <section className="py-16 container mx-auto px-4 text-center">
         <h2 className="text-3xl font-bold mb-6 text-foreground">{t('cta.title') || 'Ready to detect lemon diseases?'}</h2>
@@ -227,7 +227,7 @@ export default function AboutPage() {
           </Button>
         </Link>
       </section>
-      
+
       {/* Footer */}
       <footer className="bg-muted py-8">
         <div className="container mx-auto px-4 text-center">
@@ -237,7 +237,14 @@ export default function AboutPage() {
             </div>
             <h2 className="text-xl font-bold">{t('app.title')}</h2>
           </div>
-          <p className="text-muted-foreground text-sm">{t('footer.credit') || 'Created by PoPi — Advancing lemon disease detection with AI'}</p>
+
+          <p className="text-muted-foreground text-sm">
+            {t('footer.credit') || 'Created by PoPi — Advancing lemon disease detection with AI'}
+          </p>
+
+          <p className="text-muted-foreground text-xs mt-2">
+            &copy; {new Date().getFullYear()} PhuQuocDevs. All rights reserved.
+          </p>
         </div>
       </footer>
     </main>
