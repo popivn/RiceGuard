@@ -88,10 +88,10 @@ export default function ResultsDisplay({
             </h3>
             <p className="text-sm text-muted-foreground mt-1">{t("diagnosis.noDetectionExplanation")}</p>
 
-            <div className="mt-4">
+            {/* <div className="mt-4">
               <h3 className="font-medium mb-2">{t("diagnosis.details")}</h3>
               {loadingExplanation ? <Skeleton className="h-16 w-full" /> : <p className="text-sm">{explanation}</p>}
-            </div>
+            </div> */}
 
             <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-md text-sm">
               <p className="font-semibold">{t("diagnosis.warning")}</p>
