@@ -195,6 +195,10 @@ export default function ResultsDisplay({
               <Skeleton className="h-64 w-full rounded-lg" />
               <p className="mt-4 text-sm text-muted-foreground">{t("heatmap.generating")}</p>
             </div>
+          ) : isEmptyYoloDetection(results) ? (
+            <div className="bg-muted p-8 rounded-lg text-center">
+              <p className="text-muted-foreground">{t("heatmap.noData") || "No data"}</p>
+            </div>
           ) : heatmapImage ? (
             <div className="relative">
               <img
@@ -223,6 +227,10 @@ export default function ResultsDisplay({
             <div className="flex flex-col items-center justify-center py-8">
               <Skeleton className="h-64 w-full rounded-lg" />
               <p className="mt-4 text-sm text-muted-foreground">{t("combined.generating")}</p>
+            </div>
+          ) : isEmptyYoloDetection(results) ? (
+            <div className="bg-muted p-8 rounded-lg text-center">
+              <p className="text-muted-foreground">{t("combined.noData") || "No data"}</p>
             </div>
           ) : combinedHeatmap ? (
             <div className="relative">

@@ -93,6 +93,7 @@ export const translations: Languages = {
     "heatmap.generating": "Generating heatmap visualization...",
     "heatmap.redAreas": "Red areas indicate regions that strongly influenced the model's classification decision",
     "heatmap.notAvailable": "Heatmap not available. Click \"Analyze Image\" to generate.",
+    "heatmap.noData": "No data - No disease areas detected",
     
     // Combined view
     "combined.title": "Combined Detection and Heatmap",
@@ -100,6 +101,7 @@ export const translations: Languages = {
     "combined.generating": "Generating combined visualization...",
     "combined.boxes": "Yellow boxes show detected regions with heatmap visualization inside each region",
     "combined.notAvailable": "Combined visualization not available. Click \"Analyze Image\" to generate.",
+    "combined.noData": "No data - No disease areas detected",
     
     // Chat interface
     "chat.placeholder": "Ask about the detected disease...",
@@ -127,6 +129,9 @@ export const translations: Languages = {
     "export.title": "Disease Analysis Report",
     "export.date": "Analysis Date: {date}",
     "export.print": "Print Report",
+    
+    // Download
+    "download.demoImages": "Download Demo Images",
     
     // Disease treatment and prevention
     "diseases.prevention": "Prevention",
@@ -222,6 +227,7 @@ export const translations: Languages = {
     "heatmap.generating": "Đang tạo biểu đồ nhiệt...",
     "heatmap.redAreas": "Các vùng màu đỏ chỉ ra những vùng ảnh hưởng mạnh đến quyết định phân loại của mô hình",
     "heatmap.notAvailable": "Biểu đồ nhiệt không khả dụng. Nhấp \"Phân Tích Hình Ảnh\" để tạo.",
+    "heatmap.noData": "Không có dữ liệu - Không phát hiện vùng bệnh",
     
     // Combined view
     "combined.title": "Kết Hợp Phát Hiện và Biểu Đồ Nhiệt",
@@ -229,6 +235,7 @@ export const translations: Languages = {
     "combined.generating": "Đang tạo hình ảnh kết hợp...",
     "combined.boxes": "Các ô màu vàng hiển thị các vùng phát hiện với biểu đồ nhiệt bên trong mỗi vùng",
     "combined.notAvailable": "Hình ảnh kết hợp không khả dụng. Nhấp \"Phân Tích Hình Ảnh\" để tạo.",
+    "combined.noData": "Không có dữ liệu - Không phát hiện vùng bệnh",
     
     // Chat interface
     "chat.placeholder": "Hỏi về bệnh được phát hiện...",
@@ -256,6 +263,9 @@ export const translations: Languages = {
     "export.title": "Báo Cáo Phân Tích Bệnh",
     "export.date": "Ngày phân tích: {date}",
     "export.print": "In Báo Cáo",
+    
+    // Download
+    "download.demoImages": "Tải Xuống Hình Ảnh Demo",
     
     // Disease treatment and prevention
     "diseases.prevention": "Phòng Ngừa",

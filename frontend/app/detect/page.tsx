@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -60,6 +60,11 @@ export default function DetectPage() {
     setChatMessages([])
   }
 
+  // Hàm tải xuống ảnh demo
+  const downloadDemoImages = () => {
+    window.location.href = "/api/download-demo-images"
+  }
+
   return (
     <main className="container mx-auto py-6 px-4">
       {/* Header */}
@@ -85,9 +90,20 @@ export default function DetectPage() {
 
             <ImageUploader preview={preview} onFileChange={handleFileChange} onClearFile={clearFile} t={t} />
 
-            <Button className="w-full mt-4" disabled={!file || loading} onClick={() => analyzeImage()}>
-              {loading ? t("upload.analyzing") : t("upload.analyze")}
-            </Button>
+            <div className="flex flex-col space-y-2 mt-4">
+              <Button disabled={!file || loading} onClick={() => analyzeImage()}>
+                {loading ? t("upload.analyzing") : t("upload.analyze")}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="flex items-center justify-center" 
+                onClick={downloadDemoImages}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {t("download.demoImages") || "Tải ảnh demo"}
+              </Button>
+            </div>
 
             {error && (
               <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md text-sm">
